@@ -1,0 +1,25 @@
+[project]
+name = "waj-be"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Mariam12", email = "167231604+Maam1227@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi[standard]>=0.162.0",
+    "python-dotenv>=1.2.1",
+    "psycopg[binary]>=3.3.6",
+    "sqlmodel>=0.0.48",
+    "pwdlib[argon2]>=0.2.1",
+    "pyjwt>=2.10.1",
+    "qrcode[pil]>=8.2",
+]
+
+[project.scripts]
+waj-be = "waj_be:main"
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
