@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'constants/app_colors.dart';
-import 'screens/student_order_screen.dart';
+import 'screens/student_order_screen.dart'; // استيراد واجهة الطالب الرئيسية
 
 void main() {
   runApp(const WajbatiApp());
@@ -13,12 +12,12 @@ class WajbatiApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'وجباتي - نظام الكافيتريا الجامعي',
+      title: 'وجباتي - Wajbati',
       theme: ThemeData(
-        primaryColor: AppColors.darkGreen,
-        scaffoldBackgroundColor: AppColors.bgCream,
-        fontFamily: 'Segoe UI',
+        primarySwatch: Colors.green,
+        useMaterial3: true,
       ),
+      // تعيين واجهة الطالب لتكون هي الشاشة الافتتاحية عند فتح التطبيق
       home: const StudentOrderScreen(),
     );
   }

@@ -4,9 +4,10 @@ class OrderItem {
   final String details;
   final String cafeteriaName;
   final String prepTime;
-  String status;
+  String status; // الحالات: 'طلب جديد', 'جاري التجهيز', 'تم الاستلام'
   final String time;
   final double price;
+  final DateTime date;
 
   OrderItem({
     required this.id,
@@ -14,9 +15,10 @@ class OrderItem {
     required this.details,
     required this.cafeteriaName,
     required this.prepTime,
-    required this.status,
+    this.status = 'طلب جديد',
     required this.time,
     required this.price,
+    required this.date,
   });
 }
 
@@ -24,11 +26,13 @@ class MenuItemModel {
   String name;
   String price;
   String preptime;
+  bool isAvailable;
 
   MenuItemModel({
     required this.name,
     required this.price,
     required this.preptime,
+    this.isAvailable = true,
   });
 }
 
@@ -41,7 +45,30 @@ class SharedData {
     MenuItemModel(name: 'شاي مهيل', price: '500', preptime: '5 دقائق'),
   ];
 
-  // رموز الكافيتريات المكونة من 8 خانات بالضبط لكل كافيتريا
+  static void addMenuItem(String name, String price, String preptime) {
+    menuitems.add(MenuItemModel(
+      name: name,
+      price: price,
+      preptime: preptime,
+      isAvailable: true,
+    ));
+  }
+
+  static double getWeeklyRevenue(String cafeteriaName) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    
+    double total = 0;
+    for (var order in orders) {
+      if (order.cafeteriaName == cafeteriaName && 
+          order.status == 'تم الاستلام' && 
+          order.date.isAfter(weekAgo)) {
+        total += order.price;
+      }
+    }
+    return total;
+  }
+
   static final Map<String, String> cafeteriasWithCodes = {
     'كافيتريا علوم حاسوب': 'CS771SOL',
     'كافيتريا العلوم التطبيقية': 'AP882APP',
