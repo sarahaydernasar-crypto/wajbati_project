@@ -4,6 +4,7 @@ Run from backend with: uv run python -m project.manage --help
 """
 
 import argparse
+from contextlib import closing
 import getpass
 import os
 from pathlib import Path
@@ -30,7 +31,7 @@ def backup(destination: Path) -> None:
         if IS_SQLITE:
             source = engine.raw_connection()
             try:
-                with sqlite3.connect(temporary) as target:
+                with closing(sqlite3.connect(temporary)) as target:
                     source.driver_connection.backup(target)
                     if target.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                         raise RuntimeError("فشل فحص سلامة النسخة الاحتياطية")

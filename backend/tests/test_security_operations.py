@@ -1,4 +1,5 @@
 from datetime import timedelta
+from contextlib import closing
 
 from conftest import auth, FIXED_NOW
 from test_flow import place
@@ -48,7 +49,7 @@ def test_backup_preserves_database(client, student_token, tmp_path):
 
     path = tmp_path / "backup.db"
     backup(path)
-    with sqlite3.connect(path) as db:
+    with closing(sqlite3.connect(path)) as db:
         assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert db.execute("SELECT phone FROM students").fetchone()[0] == "07700000000"
 
