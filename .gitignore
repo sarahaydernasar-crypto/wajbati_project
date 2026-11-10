@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local tools and private service configuration
+/oracleJdk-27/
+**/.env
+**/.env.*
+!**/.env.example
+**/*service-account*.json
+/backups/
+/config/*.local.json
+**/google-services.json
+**/GoogleService-Info.plist

@@ -1,0 +1,35 @@
+# نشر سيرفر وجباتي على Render (Blueprint):
+# Render Dashboard ← New ← Blueprint ← اختر هذا المستودع، وسيُنشأ السيرفر وقاعدة البيانات تلقائياً.
+services:
+  - type: web
+    name: wajbati-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements-server.txt
+    startCommand: PYTHONPATH=src uvicorn project.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL
+        fromDatabase:
+          name: wajbati-db
+          property: connectionString
+      - key: WAJBATI_SECRET
+        generateValue: true # مفتاح عشوائي قوي يُنشأ تلقائياً، ولا يوضع في الكود أبداً
+      - key: WAJBATI_TZ
+        value: Asia/Baghdad
+      - key: WAJBATI_ENV
+        value: production
+      - key: WAJBATI_SEED_DEMO
+        value: "false"
+      - key: WAJBATI_CAFETERIA_CODES
+        sync: false # JSON mapping cafeteria names to private codes (12+ characters)
+      - key: FCM_SERVICE_ACCOUNT_JSON
+        sync: false # (اختياري) محتوى ملف حساب خدمة Firebase لإشعارات Push، يُلصق في لوحة Render
+
+databases:
+  - name: wajbati-db
+    plan: free
+    databaseName: wajbati

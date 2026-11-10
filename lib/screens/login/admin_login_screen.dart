@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../models/order_model.dart';
+
+import '../../services/cafeteria_admin_store.dart';
+import '../../services/server_settings_dialog.dart';
+import '../student/student_store.dart' show CafeteriaInfo;
 import '../dashboard_screen.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -10,8 +13,18 @@ class AdminLoginScreen extends StatefulWidget {
 }
 
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
-  String? _selectedCafeteria;
+  final _store = CafeteriaAdminStore.instance;
   final TextEditingController _codeController = TextEditingController();
+  List<CafeteriaInfo>? _cafeterias;
+  String? _loadError;
+  int? _selectedCafeteria;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCafeterias();
+  }
 
   @override
   void dispose() {
@@ -19,35 +32,38 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     super.dispose();
   }
 
-  void _loginAdmin() {
+  Future<void> _loadCafeterias() async {
+    setState(() => _loadError = null);
+    try {
+      final list = await _store.fetchCafeterias();
+      if (mounted) setState(() => _cafeterias = list);
+    } catch (e) {
+      if (mounted) setState(() => _loadError = e.toString());
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
+
+  Future<void> _loginAdmin() async {
     if (_selectedCafeteria == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('الرجاء اختيار الكافيتريا أولاً'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showError('الرجاء اختيار الكافيتريا أولاً');
       return;
     }
-
-    final enteredCode = _codeController.text.trim();
-    final correctCode = SharedData.cafeteriasWithCodes[_selectedCafeteria];
-
-    if (enteredCode == correctCode) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DashboardScreen(cafeteriaName: _selectedCafeteria!),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('الرمز السري غير صحيح! يجب أن يكون 8 خانات مطابقة'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    setState(() => _loading = true);
+    final r = await _store.login(_selectedCafeteria!, _codeController.text);
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (!r.ok) {
+      _showError(r.message);
+      return;
     }
+    _codeController.clear();
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => DashboardScreen(cafeteriaName: _store.cafeteria!.name)),
+    );
   }
 
   @override
@@ -59,35 +75,38 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.green.shade900,
+        iconTheme: const IconThemeData(color: Colors.white),
         centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            DropdownButtonFormField<String>(
-              value: _selectedCafeteria,
+            if (_loadError != null) ...[
+              Text(_loadError!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+              TextButton.icon(onPressed: _loadCafeterias, icon: const Icon(Icons.refresh), label: const Text('إعادة المحاولة')),
+              const SizedBox(height: 12),
+            ] else if (_cafeterias == null) ...[
+              const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+            ],
+            DropdownButtonFormField<int>(
+              initialValue: _selectedCafeteria,
               hint: const Text('اختر الكافيتريا الخاصة بك'),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.storefront),
               ),
-              items: SharedData.cafeteriasWithCodes.keys.map((cafeteria) {
-                return DropdownMenuItem(
-                  value: cafeteria,
-                  child: Text(cafeteria),
-                );
-              }).toList(),
-              onChanged: (val) {
-                setState(() {
-                  _selectedCafeteria = val;
-                });
-              },
+              items: (_cafeterias ?? const <CafeteriaInfo>[])
+                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedCafeteria = val),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _codeController,
               obscureText: true,
+              onSubmitted: (_) => _loginAdmin(),
               decoration: const InputDecoration(
                 labelText: 'الرمز السري للكافيتريا (8 خانات)',
                 border: OutlineInputBorder(),
@@ -103,10 +122,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   backgroundColor: Colors.green.shade900,
                   foregroundColor: Colors.white,
                 ),
-                onPressed: _loginAdmin,
-                child: const Text('دخول لوحة التحكم', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                onPressed: _loading ? null : _loginAdmin,
+                child: _loading
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                    : const Text('دخول لوحة التحكم', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
+            const SizedBox(height: 12),
+            const ServerSettingsButton(),
           ],
         ),
       ),

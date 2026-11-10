@@ -1,0 +1,30 @@
+[project]
+name = "project"
+version = "0.1.0"
+description = "Wajbati: university cafeteria ordering API (students + cafeteria dashboard)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy>=2.0.0",
+    "bcrypt>=4.1.0",
+    "pyjwt[crypto]>=2.8.0",
+    "python-dotenv>=1.0.0",
+    "psycopg[binary]>=3.2",
+    "python-multipart>=0.0.9",
+    "httpx>=0.28.1",
+    "tzdata>=2024.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

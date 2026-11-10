@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>تُستخدم الكاميرا لمسح رمز الطلب وتأكيد تسليمه في الكافيتريا.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>اختر صورة الوجبة لإضافتها إلى قائمة الكافيتريا.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>الاتصال بسيرفر وجباتي على الشبكة المحلية أثناء التجربة.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

@@ -1,0 +1,1 @@
+"""Wajbati backend (FastAPI)."""

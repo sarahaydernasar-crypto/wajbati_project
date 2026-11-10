@@ -1,17 +1,93 @@
-# wajbati_dashboard
+# وجباتي - Wajbati
 
-A new Flutter project.
+التحديثات الحالية وإعدادات تفعيل الإشعارات والأمان والنسخ الاحتياطي موثقة في [docs/UPDATES.md](docs/UPDATES.md).
 
-## Getting Started
+تطبيق Flutter لطلب الوجبات من كافيتريات الجامعة: واجهة للطالب ولوحة تحكم لمسؤول الكافيتريا.
 
-This project is a starting point for a Flutter application.
+## التشغيل
 
-A few resources to get you started if this is your first Flutter project:
+التطبيق يحتاج السيرفر (FastAPI) في مجلد [backend/](backend/README.md).
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+# 1) السيرفر
+cd backend
+uv sync
+uv run uvicorn project.main:app --host 0.0.0.0 --port 8000
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# 2) التطبيق (في نافذة أخرى)
+flutter pub get
+flutter run -d chrome
+```
+
+- عنوان السيرفر الافتراضي في التطبيق: `http://localhost:8000` (ومحاكي أندرويد: `http://10.0.2.2:8000`).
+- لتغييره: زر "السيرفر" أسفل شاشة الدخول، أو وقت التشغيل:
+  `flutter run --dart-define=API_URL=http://192.168.1.10:8000`
+- على هاتف حقيقي: استخدم عنوان IP للكمبيوتر، وتأكد أن الهاتف على نفس شبكة الواي فاي.
+
+## الاختبارات
+
+```bash
+flutter test                         # واجهة التطبيق (مع سيرفر وهمي)
+cd backend && uv run pytest          # منطق السيرفر
+
+# تدفق كامل مع السيرفر الحقيقي (السيرفر يعمل):
+flutter test test/server_integration_test.dart --dart-define=WAJBATI_API=http://localhost:8000
+```
+
+## تجربة تدفق الطلب كاملاً
+
+1. سجّل دخول طالب (حساب تجريبي: `07700000000` / `123456`) أو أنشئ حساباً.
+2. اختر كافيتريا مفتوحة ← أضف أصنافاً (مع ملاحظات مثل "بدون بصل") ← السلة.
+3. اختر وقت الاستلام ← اختر طريقة الدفع ← أكّد الطلب.
+4. سجّل خروج، ثم من شاشة الدخول اختر "دخول مسؤول الكافيتريا" (رمز علوم حاسوب: `CS771SOL`).
+5. غيّر حالة الطلب: بدء التجهيز ← جاهز للاستلام ← تم التسليم (أو امسح رمز QR الطالب).
+6. ارجع لحساب الطالب: ستجد الإشعارات وتحديث الحالة، ويمكنك التقييم و"أعد الطلب".
+
+## الحالات الأربع للطلب
+
+| الحالة (في السيرفر والكود) | تظهر للطالب |
+|---|---|
+| `received` | تم استلام الطلب |
+| `preparing` | قيد التحضير |
+| `ready` | جاهز للاستلام |
+| `delivered` | تم التسليم |
+
+الثوابت معرّفة في `OrderStatus` داخل `lib/screens/student/student_store.dart`.
+
+## هيكل واجهة الطالب
+
+```
+lib/screens/student_order_screen.dart        الشاشة الرئيسية للطالب (التبويبات)
+lib/screens/student/
+  student_store.dart          الحالة: الحساب، السلة، الطلبات، الإشعارات (مربوطة بالسيرفر)
+  student_auth_screens.dart   تسجيل الدخول / إنشاء حساب
+  student_tabs.dart           الكافيتريات، طلباتي، المفضلة، الإشعارات
+  menu_screen.dart            قائمة الكافيتريا
+  cart_checkout_screens.dart  السلة، وقت الاستلام، الدفع
+  order_tracking_screen.dart  تتبع الطلب + زر "وصلت" + QR
+  student_widgets.dart        عناصر مشتركة
+lib/services/
+  api_client.dart             الاتصال بالسيرفر (JWT + رسائل خطأ عربية)
+  cafeteria_admin_store.dart  حالة لوحة تحكم الكافيتريا
+  server_settings_dialog.dart تغيير عنوان السيرفر
+backend/                      سيرفر FastAPI (انظر backend/README.md)
+assets/sounds/new_order.wav   صوت تنبيه الطلب الجديد في لوحة التحكم
+render.yaml                   إعداد النشر على Render
+```
+
+## ملاحظات
+
+- كل البيانات (الحسابات، الطلبات، القوائم، المفضلة، الإشعارات) في السيرفر؛ السلة فقط محلية.
+- تُحفظ السلة ومحاولة تأكيد الطلب محليًا لاستعادتهما بعد إغلاق التطبيق. الإلغاء والرفض متاحان قبل بدء التحضير، ويظهر السبب في تفاصيل الطلب.
+- التطبيق يجلب التحديثات من السيرفر كل بضع ثوانٍ (حالة الطلب، توفر الأصناف، الإشعارات).
+- تتبع الطلبات من تبويب "طلباتي" (شريط الحالات الأربع + زر "وصلت" / رمز QR على كل طلب).
+- لوحة التحكم: رفع صور الأصناف (اضغط على صورة الصنف)، وصوت تنبيه عند وصول طلب جديد (زر 🔊 للكتم).
+- الإشعارات تظهر داخل التطبيق. ربط Firebase في السيرفر والتطبيق موجود، وتفعيله يحتاج مشروع Firebase وإعداداته؛ راجع [دليل التحديثات](docs/UPDATES.md).
+- الدفع الإلكتروني تجريبي ولا يخصم أي مبلغ (الربط الحقيقي يحتاج حساب تاجر لدى بوابة دفع).
+
+## النشر
+
+ملف [render.yaml](render.yaml) جاهز: من Render اختر **New ← Blueprint** وحدد هذا المستودع،
+فيُنشأ السيرفر وقاعدة بيانات PostgreSQL ومفتاح `WAJBATI_SECRET` تلقائياً.
+بعدها شغّل التطبيق بعنوان السيرفر المنشور:
+`flutter run --dart-define=API_URL=https://wajbati-api.onrender.com`

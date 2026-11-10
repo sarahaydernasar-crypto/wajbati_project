@@ -1,0 +1,11 @@
+# اعتماديات السيرفر للنشر (Render وغيره). نفس قائمة pyproject.toml
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+sqlalchemy>=2.0.0
+bcrypt>=4.1.0
+pyjwt[crypto]>=2.8.0
+python-dotenv>=1.0.0
+psycopg[binary]>=3.2
+python-multipart>=0.0.9
+httpx>=0.28.1
+tzdata>=2024.1
