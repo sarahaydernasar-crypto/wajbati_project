@@ -22,7 +22,9 @@ from .database import Base, SessionLocal, add_missing_columns, engine
 from .models import Cafeteria, MenuItem, Student
 from .routes_cafeteria import router as cafeteria_router
 from .routes_student import router as student_router
+from .routes_platform import router as platform_router
 from .security import hash_secret
+from .menu_ingredients import initial_ingredients
 from .settings import production
 
 log = logging.getLogger("wajbati.api")
@@ -57,7 +59,7 @@ def seed() -> None:
                 name=name, code_hash=hash_secret(code), location=location, open_hour=open_hour, close_hour=close_hour
             )
             cafe.menu_items = [
-                MenuItem(name=n, price=p, prep_minutes=m, emoji=e) for n, p, m, e in SEED_MENU
+                MenuItem(name=n, price=p, prep_minutes=m, emoji=e, **initial_ingredients(n)) for n, p, m, e in SEED_MENU
             ]
             db.add(cafe)
         # حساب طالب تجريبي
@@ -89,7 +91,11 @@ async def unexpected_error(request: Request, exc: Exception):
     # Log the route and stack trace; never log credentials or request bodies.
     log.error("Unhandled API error: %s %s", request.method, request.url.path,
               exc_info=(type(exc), exc, exc.__traceback__))
-    return JSONResponse(status_code=500, content={"detail": "حدث خطأ في السيرفر، حاول بعد قليل."})
+    # ServerErrorMiddleware handles this outside CORSMiddleware. Keep the same
+    # public-origin policy so browsers can read the error instead of reporting
+    # a misleading network failure.
+    return JSONResponse(status_code=500, content={"detail": "حدث خطأ في السيرفر، حاول بعد قليل."},
+                        headers={"Access-Control-Allow-Origin": "*"})
 
 # تطبيق Flutter (ويب/موبايل) يتصل من أصل مختلف
 app.add_middleware(
@@ -126,6 +132,7 @@ async def validation_error(_: Request, exc: RequestValidationError):
 
 app.include_router(student_router)
 app.include_router(cafeteria_router)
+app.include_router(platform_router)
 
 
 @app.get("/health", tags=["health"])

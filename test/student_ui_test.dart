@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wajbati_dashboard/main.dart';
+import 'package:wajbati_dashboard/widgets/cart_dock.dart';
 import 'package:wajbati_dashboard/screens/student/student_store.dart';
 import 'package:wajbati_dashboard/services/api_client.dart';
 
@@ -15,8 +17,10 @@ void main() {
   final store = StudentStore.instance;
   var serverDown = false;
   var activeOrder = false; // هل لدى الطالب طلب نشط
+  var teaAvailable = false;
   var newNotification = false; // هل يرجع السيرفر إشعاراً جديداً
   var notificationId = 7; // رقم أحدث إشعار في السيرفر الوهمي
+  Map<String, dynamic>? registrationBody;
 
   http.Response json(Object body, [int status = 200]) => http.Response.bytes(
     utf8.encode(jsonEncode(body)),
@@ -28,6 +32,19 @@ void main() {
     if (serverDown) throw http.ClientException('connection refused');
     final path = req.url.path;
     switch (path) {
+      case '/auth/register':
+        registrationBody = Map<String, dynamic>.from(
+          jsonDecode(req.body) as Map,
+        );
+        return json({
+          'token': 'new-student-token',
+          'student': {
+            'id': 2,
+            'name': registrationBody!['name'],
+            'university_id': '',
+            'phone': registrationBody!['phone'],
+          },
+        }, 201);
       case '/auth/login':
         final body = jsonDecode(req.body) as Map;
         if (body['password'] != '123456') {
@@ -81,6 +98,8 @@ void main() {
             'image_url': null,
             'rating_avg': 4.5,
             'rating_count': 2,
+            'ingredients': ['خبز', 'لحم', 'بصل', 'طماطم'],
+            'removable_ingredients': ['بصل', 'طماطم'],
           },
           {
             'id': 12,
@@ -89,11 +108,13 @@ void main() {
             'name': 'شاي مهيل',
             'price': 500,
             'prep_minutes': 5,
-            'available': false,
+            'available': teaAvailable,
             'emoji': '🍵',
             'image_url': null,
             'rating_avg': null,
             'rating_count': 0,
+            'ingredients': ['شاي', 'ماء', 'هيل', 'سكر'],
+            'removable_ingredients': ['سكر'],
           },
         ]);
       case '/cafeterias/1/slots':
@@ -159,8 +180,10 @@ void main() {
   setUp(() async {
     serverDown = false;
     activeOrder = false;
+    teaAvailable = false;
     newNotification = false;
     notificationId = 7;
+    registrationBody = null;
     SharedPreferences.setMockInitialValues({});
     FlutterSecureStorage.setMockInitialValues({});
     await ApiClient.instance.init(client: fakeServer);
@@ -180,6 +203,77 @@ void main() {
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.reset);
   }
+
+  testWidgets('إنشاء الحساب دون رقم جامعي وملاحظات الطبق دون خيار السكر', (
+    tester,
+  ) async {
+    phoneSize(tester);
+    await tester.pumpWidget(const WajbatiApp());
+    await tester.tap(find.text('أنشئ حساباً'));
+    await tester.pumpAndSettle();
+    expect(find.text('الرقم الجامعي'), findsNothing);
+    expect(find.byType(TextFormField), findsNWidgets(4));
+    await tester.enterText(find.byType(TextFormField).at(0), 'طالب جديد');
+    await tester.enterText(find.byType(TextFormField).at(1), '07711113333');
+    await tester.enterText(find.byType(TextFormField).at(2), 'secret1');
+    await tester.enterText(find.byType(TextFormField).at(3), 'secret1');
+    await tester.tap(find.text('إنشاء الحساب'));
+    await tester.pumpAndSettle();
+    store.stopWatching();
+    expect(store.isLoggedIn, isTrue);
+    expect(registrationBody!.containsKey('university_id'), isFalse);
+    expect(registrationBody!['phone'], '07711113333');
+    await tester.tap(find.text('كافيتريا علوم حاسوب'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('صمون كباب لحم'));
+    await tester.pumpAndSettle();
+    expect(find.text('بدون بصل'), findsOneWidget);
+    expect(find.text('بدون سكر'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('الشاي يسمح بإزالة السكر فقط ويحفظ الاختيار دون تكرار', (
+    tester,
+  ) async {
+    phoneSize(tester);
+    teaAvailable = true;
+    await login(tester);
+    store.stopWatching();
+    await tester.tap(find.text('كافيتريا علوم حاسوب'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('شاي مهيل'),
+      350,
+      scrollable: find
+          .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('شاي مهيل'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('شاي مهيل'));
+    await tester.pumpAndSettle();
+    expect(find.text('شاي، ماء، هيل، سكر'), findsOneWidget);
+    expect(find.byType(FilterChip), findsOneWidget);
+    expect(find.text('بدون بصل'), findsNothing);
+    expect(find.text('صوص إضافي'), findsNothing);
+    final sugar = find.widgetWithText(FilterChip, 'بدون سكر');
+    await tester.tap(sugar);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(sugar).selected, isTrue);
+    await tester.tap(sugar);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(sugar).selected, isFalse);
+    await tester.tap(sugar);
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('أضف للسلة •'));
+    await tester.pumpAndSettle();
+    expect(store.cart.single.note, 'بدون سكر');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'تسجيل الدخول ← الكافيتريات بحالتها ← القائمة (المنتهي واضح) ← السلة ← أوقات الاستلام',
@@ -218,19 +312,21 @@ void main() {
     },
   );
 
-  testWidgets('تتبع الطلب من "طلباتي" والرئيسية تحيل إليها', (tester) async {
+  testWidgets('بطاقة الطلب الحالي تعرض الحالة وتفتح التتبع مباشرة', (
+    tester,
+  ) async {
     phoneSize(tester);
     activeOrder = true;
     await login(tester);
     store.stopWatching();
 
-    // الرئيسية: تذكير صغير فقط بدل بطاقة التتبع
-    expect(find.text('لديك طلب قيد المتابعة'), findsOneWidget);
-    await tester.tap(find.text('لديك طلب قيد المتابعة'));
+    expect(find.text('طلبك الحالي'), findsOneWidget);
+    expect(find.text('#123456'), findsOneWidget);
+    expect(find.textContaining('موعد الاستلام 12:15'), findsOneWidget);
+    await tester.tap(find.text('تتبع الطلب'));
     await tester.pumpAndSettle();
 
-    // "طلباتي": شريط الحالات الأربع + وقت الاستلام + زر "وصلت"
-    expect(find.text('الطلبات الحالية'), findsOneWidget);
+    expect(find.text('طلب #123456'), findsOneWidget);
     for (final label in [
       'تم استلام الطلب',
       'قيد التحضير',
@@ -244,6 +340,117 @@ void main() {
 
     store.logout();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('تعديل الكمية من بطاقة الطبق يحدّث السلة ويمنع تجاوز الحد', (
+    tester,
+  ) async {
+    phoneSize(tester);
+    await login(tester);
+    store.stopWatching();
+    await tester.tap(find.text('كافيتريا علوم حاسوب'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('أضف للسلة').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('أضف للسلة').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('زيادة كمية صمون كباب لحم'));
+    await tester.pumpAndSettle();
+    expect(store.cartCount, 2);
+    expect(tester.widget<CartDock>(find.byType(CartDock)).total, 6000);
+    store.changeQuantity(store.cart.single, 18);
+    await tester.pumpAndSettle();
+    expect(store.cartCount, 20);
+    final plus = find.widgetWithIcon(IconButton, Icons.add);
+    expect(tester.widget<IconButton>(plus).onPressed, isNull);
+    store.changeQuantity(store.cart.single, -19);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('تقليل كمية صمون كباب لحم'));
+    await tester.pumpAndSettle();
+    expect(store.cartCount, 0);
+    expect(find.text('عرض السلة'), findsNothing);
+    expect(tester.takeException(), isNull);
+    store.logout();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('شريط السلة ثابت ويبقى عند العودة للرئيسية وتغيير التبويب', (
+    tester,
+  ) async {
+    phoneSize(tester);
+    await login(tester);
+    store.stopWatching();
+    await tester.tap(find.text('كافيتريا علوم حاسوب'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('أضف للسلة').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('أضف للسلة').first);
+    await tester.pumpAndSettle();
+    final before = tester.getTopLeft(find.byType(CartDock));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byType(CartDock)), before);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('عرض السلة'), findsOneWidget);
+    await tester.tap(find.text('المفضلة'));
+    await tester.pumpAndSettle();
+    expect(find.text('عرض السلة'), findsOneWidget);
+    expect(tester.widget<CartDock>(find.byType(CartDock)).count, 1);
+    store.clearCart();
+    await tester.pumpAndSettle();
+    expect(find.text('عرض السلة'), findsNothing);
+    store.logout();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('الواجهة تتكيف مع خط أكبر وتقليل الحركة', (tester) async {
+    phoneSize(tester);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await login(tester);
+    store.stopWatching();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('كافيتريا علوم حاسوب'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('أضف للسلة').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('أضف للسلة').first);
+    await tester.pumpAndSettle();
+    expect(find.text('عرض السلة'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    store.logout();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('تحميل بدء التطبيق يعرض حالة واضحة وإعادة المحاولة عند الفشل', (
+    tester,
+  ) async {
+    var attempts = 0;
+    final gate = Completer<void>();
+    await tester.pumpWidget(
+      WajbatiBootstrap(
+        initialize: () async {
+          attempts++;
+          if (attempts == 1) {
+            await gate.future;
+            throw Exception('startup failed');
+          }
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('نجهّز لك وجباتي...'), findsOneWidget);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('تعذّر تجهيز التطبيق. أعد المحاولة.'), findsOneWidget);
+    await tester.tap(find.text('إعادة المحاولة'));
+    await tester.pumpAndSettle();
+    expect(find.text('تسجيل الدخول'), findsOneWidget);
+    expect(attempts, 2);
   });
 
   testWidgets('إشعار الطلب يختفي وحده، ولا يبقى بعد تسجيل الخروج', (

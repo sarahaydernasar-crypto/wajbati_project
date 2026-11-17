@@ -42,6 +42,18 @@ def test_register_login_errors(client):
     assert client.get("/orders/mine").status_code == 401
 
 
+def test_registration_without_university_id(client):
+    for phone in ("07711113333", "07711114444"):
+        body = {"name": "طالب جديد", "phone": phone, "password": "secret1"}
+        response = client.post("/auth/register", json=body)
+        assert response.status_code == 201, response.text
+        assert response.json()["student"]["university_id"] == ""
+        token = response.json()["token"]
+        assert client.get("/me", headers=auth(token)).json()["phone"] == phone
+        assert client.post("/auth/login", json={"phone": phone, "password": "secret1"}).status_code == 200
+        assert client.post("/auth/register", json=body).status_code == 409
+
+
 def test_full_order_flow(client, student_token, admin_token):
     cafes = client.get("/cafeterias").json()
     assert cafes[0]["status"] == "open"
@@ -167,3 +179,14 @@ def test_favorites(client, student_token):
     assert favs[0]["cafeteria_name"] == "كافيتريا علوم حاسوب"
     client.delete(f"/favorites/{item['id']}", headers=auth(student_token))
     assert client.get("/favorites", headers=auth(student_token)).json() == []
+
+
+def test_menu_delete_keeps_existing_order_details(client, student_token, admin_token):
+    order = place(client, student_token).json()
+    item_id = order["lines"][0]["menu_item_id"]
+    assert client.delete(f"/admin/menu/{item_id}", headers=auth(admin_token)).status_code == 204
+    assert all(item["id"] != item_id for item in client.get("/cafeterias/1/menu").json())
+    saved = client.get(f"/orders/{order['id']}", headers=auth(student_token)).json()
+    assert saved["lines"] == order["lines"] and saved["total"] == order["total"]
+    denied = place(client, student_token, lines=[{"menu_item_id": item_id, "quantity": 1}])
+    assert denied.status_code == 400

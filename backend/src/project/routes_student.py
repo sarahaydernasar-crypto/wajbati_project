@@ -3,6 +3,7 @@
 import random
 import hashlib
 import re
+from uuid import uuid4
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -39,13 +40,13 @@ def normalize_phone(p: str) -> str:
 
 
 def student_json(s: Student) -> dict:
-    return {"id": s.id, "name": s.name, "university_id": s.university_id, "phone": s.phone}
+    return {"id": s.id, "name": s.name, "university_id": s.public_university_id, "phone": s.phone}
 
 
 # ---------------- الحساب ----------------
 class RegisterIn(BaseModel):
     name: str = Field(min_length=3, max_length=100)
-    university_id: str
+    university_id: str | None = None
     phone: str
     password: str = Field(min_length=6, max_length=100)
 
@@ -66,7 +67,9 @@ class RegisterIn(BaseModel):
 
     @field_validator("university_id")
     @classmethod
-    def _uni(cls, v: str) -> str:
+    def _uni(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
         v = v.strip()
         if not re.fullmatch(r"\d{4,12}", v):
             raise ValueError("رقم جامعي غير صالح (أرقام فقط)")
@@ -90,10 +93,11 @@ class LoginIn(BaseModel):
 def register(body: RegisterIn, db: DbDep):
     if db.scalar(select(Student).where(Student.phone == body.phone)):
         raise HTTPException(status.HTTP_409_CONFLICT, "رقم الهاتف مسجّل مسبقاً، جرّب تسجيل الدخول.")
-    if db.scalar(select(Student).where(Student.university_id == body.university_id)):
+    if body.university_id is not None and db.scalar(select(Student).where(Student.university_id == body.university_id)):
         raise HTTPException(status.HTTP_409_CONFLICT, "الرقم الجامعي مستخدم في حساب آخر.")
     student = Student(
-        name=body.name, university_id=body.university_id, phone=body.phone, password_hash=hash_secret(body.password)
+        name=body.name, university_id=body.university_id or f"sys_{uuid4().hex[:16]}",
+        phone=body.phone, password_hash=hash_secret(body.password)
     )
     db.add(student)
     db.commit()

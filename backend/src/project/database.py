@@ -44,7 +44,8 @@ def get_db():
 def add_missing_columns() -> None:
     """Ordered, additive migrations; existing rows are preserved."""
     from datetime import datetime, timezone
-    from .models import SchemaMigration
+    from .models import SchemaMigration, MenuItem
+    from .menu_ingredients import DEFAULT_INGREDIENTS
 
     SchemaMigration.__table__.create(engine, checkfirst=True)
     blob = "BLOB" if IS_SQLITE else "BYTEA"
@@ -57,6 +58,11 @@ def add_missing_columns() -> None:
         (2, {"orders": {"closure_reason": "VARCHAR(300)"},
              "students": {"auth_version": "INTEGER NOT NULL DEFAULT 0"},
              "cafeterias": {"auth_version": "INTEGER NOT NULL DEFAULT 0"}}),
+        (3, {"orders": {"delivered_at": "TIMESTAMP"}}),
+        (4, {"menu_items": {
+            "ingredients": "JSON NOT NULL DEFAULT '[]'",
+            "removable_ingredients": "JSON NOT NULL DEFAULT '[]'",
+        }}),
     ]
     with engine.begin() as conn:
         if IS_SQLITE:
@@ -77,5 +83,16 @@ def add_missing_columns() -> None:
                     if name not in present:
                         conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
             if set(tables) <= existing_tables:
+                if version == 4:
+                    for name, (ingredients, removable) in DEFAULT_INGREDIENTS.items():
+                        conn.execute(MenuItem.__table__.update().where(MenuItem.name == name).values(
+                            ingredients=ingredients, removable_ingredients=removable))
+                if version == 3 and "order_events" in existing_tables:
+                    # Recover real delivery times where the previous audit log has them.
+                    # Older records without events remain unknown rather than inventing a time.
+                    conn.execute(text("UPDATE orders SET delivered_at = "
+                                      "(SELECT MAX(created_at) FROM order_events "
+                                      "WHERE order_events.order_id = orders.id AND order_events.status = 'delivered') "
+                                      "WHERE status = 'delivered' AND delivered_at IS NULL"))
                 conn.execute(SchemaMigration.__table__.insert().values(
                     version=version, applied_at=datetime.now(timezone.utc).replace(tzinfo=None)))

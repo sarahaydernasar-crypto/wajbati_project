@@ -1,5 +1,6 @@
 from datetime import timedelta
 from contextlib import closing
+import pytest
 
 from conftest import auth, FIXED_NOW
 from test_flow import place
@@ -41,6 +42,42 @@ def test_order_audit_and_daily_summary(client, student_token, admin_token):
     summary = client.get("/admin/summary", headers=auth(admin_token)).json()
     assert summary["orders"] == 1 and summary["delivered_orders"] == 1
     assert summary["sales"] == 6000 and summary["top_items"][0]["quantity"] == 2
+
+
+@pytest.mark.parametrize("path,credentials", [
+    ("/auth/login", {"phone": "07700000000", "password": "123456"}),
+    ("/admin/login", {"cafeteria_id": 1, "code": "CS771SOL"}),
+])
+def test_login_after_days_of_inactivity(client, monkeypatch, path, credentials):
+    assert client.post(path, json=credentials).status_code == 200
+    # Exercise cleanup of an unrelated stale counter too.
+    assert client.post('/auth/login', json={"phone": "07711111111", "password": "wrong"}).status_code == 401
+    monkeypatch.setattr(logic, "now", lambda: FIXED_NOW + timedelta(days=2))
+    response = client.post(path, json=credentials, headers={"Origin": "http://localhost:53631"})
+    assert response.status_code == 200, response.text
+    assert response.json()['token']
+    assert response.headers['access-control-allow-origin'] == '*'
+    # The renewed counter is retained, and the normal limit still applies.
+    for _ in range(9):
+        assert client.post(path, json=credentials).status_code == 200
+    assert client.post(path, json=credentials).status_code == 429
+
+
+def test_internal_error_keeps_cors_and_safe_message(client, monkeypatch):
+    from fastapi.testclient import TestClient
+    from project.main import app
+    from project import routes_student
+
+    def fail(*args, **kwargs):
+        raise RuntimeError('private diagnostic must not reach the browser')
+
+    monkeypatch.setattr(routes_student, 'check_login', fail)
+    with TestClient(app, raise_server_exceptions=False) as browser:
+        response = browser.post('/auth/login', headers={'Origin': 'http://localhost:53631'},
+                                json={'phone': '07700000000', 'password': '123456'})
+    assert response.status_code == 500
+    assert response.headers['access-control-allow-origin'] == '*'
+    assert response.json() == {'detail': 'حدث خطأ في السيرفر، حاول بعد قليل.'}
 
 
 def test_backup_preserves_database(client, student_token, tmp_path):

@@ -1,7 +1,11 @@
+import '../../localization/localized_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../constants/app_colors.dart';
+import '../../constants/app_theme.dart';
+import '../../widgets/cart_dock.dart';
+import '../../widgets/quantity_stepper.dart';
 import '../../services/api_client.dart';
 import 'student_store.dart';
 import 'student_widgets.dart';
@@ -20,17 +24,26 @@ class CartScreen extends StatelessWidget {
       builder: (context, _) {
         final cart = store.cart;
         final unavailable = store.unavailableInCart;
+        final closed =
+            store.cafeterias[store.cartCafeteria]?.status ==
+            CafeteriaStatus.closed;
         return Scaffold(
           backgroundColor: AppColors.bgCream,
           appBar: AppBar(
             backgroundColor: AppColors.darkGreen,
             foregroundColor: Colors.white,
-            title: const Text('السلة', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: const LText(
+              'السلة',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             actions: [
               if (cart.isNotEmpty)
                 TextButton(
                   onPressed: () => store.clearCart(),
-                  child: const Text('إفراغ', style: TextStyle(color: Colors.white)),
+                  child: const LText(
+                    'إفراغ',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ),
             ],
           ),
@@ -39,16 +52,30 @@ class CartScreen extends StatelessWidget {
                   icon: Icons.shopping_bag_outlined,
                   title: 'سلتك فارغة',
                   subtitle: 'أضف أصنافاً من قائمة إحدى الكافيتريات',
-                  action: FilledButton(onPressed: () => Navigator.pop(context), child: const Text('تصفح الكافيتريات')),
+                  action: FilledButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const LText('تصفح الكافيتريات'),
+                  ),
                 )
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.storefront, color: AppColors.darkGreen),
+                        const Icon(
+                          Icons.storefront,
+                          color: AppColors.darkGreen,
+                        ),
                         const SizedBox(width: 6),
-                        Text(store.cartCafeteria ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Expanded(
+                          child: LText(
+                            store.cartCafeteria ?? '',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -56,30 +83,57 @@ class CartScreen extends StatelessWidget {
                       Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(12)),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: Row(
                           children: [
-                            Icon(Icons.warning_amber, color: Colors.red.shade700),
+                            Icon(
+                              Icons.warning_amber,
+                              color: Colors.red.shade700,
+                            ),
                             const SizedBox(width: 8),
-                            const Expanded(child: Text('بعض الأصناف نفدت بعد إضافتها. احذفها لإكمال الطلب.')),
+                            const Expanded(
+                              child: LText(
+                                'بعض الأصناف نفدت بعد إضافتها. احذفها لإكمال الطلب.',
+                              ),
+                            ),
                           ],
                         ),
                       ),
                     for (final e in cart) _CartEntryCard(entry: e),
                     const SizedBox(height: 8),
                     _summaryRow('عدد الأصناف', '${store.cartCount}'),
-                    _summaryRow('أقصى وقت تحضير', '${store.cartMaxPrepMinutes} دقيقة'),
+                    _summaryRow(
+                      'أقصى وقت تحضير',
+                      '${store.cartMaxPrepMinutes} دقيقة',
+                    ),
                     const Divider(),
-                    _summaryRow('المجموع', formatPrice(store.cartTotal), bold: true),
-                    const SizedBox(height: 90),
+                    _summaryRow(
+                      'المجموع',
+                      formatPrice(store.cartTotal),
+                      bold: true,
+                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
-          bottomSheet: cart.isEmpty
+          bottomNavigationBar: cart.isEmpty
               ? null
-              : _BottomAction(
+              : CartDock(
+                  total: store.cartTotal,
+                  count: store.cartCount,
                   label: 'اختيار وقت الاستلام',
-                  enabled: unavailable.isEmpty,
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PickupTimeScreen())),
+                  enabled: unavailable.isEmpty && !closed,
+                  message: closed
+                      ? 'الكافيتريا مغلقة الآن، يمكنك الاحتفاظ بالسلة والعودة لاحقًا.'
+                      : unavailable.isNotEmpty
+                      ? 'احذف الأصناف غير المتوفرة للمتابعة.'
+                      : null,
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PickupTimeScreen()),
+                  ),
                 ),
         );
       },
@@ -96,16 +150,25 @@ class _CartEntryCard extends StatelessWidget {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('ملاحظة على "${entry.item.name}"'),
-        content: TextField(
+        title: LText('ملاحظة على "${entry.item.name}"'),
+        content: LTextField(
           controller: ctrl,
           autofocus: true,
           maxLength: 80,
-          decoration: const InputDecoration(hintText: 'مثال: بدون بصل', border: OutlineInputBorder()),
+          decoration: const InputDecoration(
+            hintText: 'مثال: بدون بصل',
+            border: OutlineInputBorder(),
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('حفظ')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const LText('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: const LText('حفظ'),
+          ),
         ],
       ),
     );
@@ -115,73 +178,90 @@ class _CartEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = StudentStore.instance;
-    final available = entry.item.isAvailable;
+    final available = store.latest(entry.item)?.isAvailable ?? false;
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: available ? BorderSide.none : BorderSide(color: Colors.red.shade300),
+        borderRadius: BorderRadius.circular(AppDesign.radius),
+        side: BorderSide(
+          color: available
+              ? AppColors.border
+              : AppColors.danger.withValues(alpha: .35),
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(14),
+        child: Column(
           children: [
-            MenuItemImage(item: entry.item, size: 60),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(entry.item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  if (!available)
-                    Text('نفد - احذفه من السلة', style: TextStyle(color: Colors.red.shade700, fontSize: 12)),
-                  Text(formatPrice(entry.total), style: const TextStyle(color: AppColors.darkGreen, fontWeight: FontWeight.bold)),
-                  InkWell(
-                    onTap: () => _editNote(context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_note, size: 18, color: Colors.grey.shade700),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              entry.note.isEmpty ? 'أضف ملاحظة (مثلاً بدون بصل)' : entry.note,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: entry.note.isEmpty ? Colors.grey.shade600 : AppColors.orange,
-                                fontWeight: entry.note.isEmpty ? null : FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Column(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                IconButton(
-                  tooltip: 'حذف',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => store.removeFromCart(entry),
-                  icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+                MenuItemImage(
+                  item: store.latest(entry.item) ?? entry.item,
+                  size: 76,
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _stepBtn(Icons.remove, () => store.changeQuantity(entry, -1)),
-                      Text('${entry.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      _stepBtn(Icons.add, available && entry.quantity < 20 ? () => store.changeQuantity(entry, 1) : null),
+                      LText(
+                        entry.item.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      LText(
+                        formatPrice(entry.total),
+                        style: const TextStyle(
+                          color: AppColors.darkGreen,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (!available)
+                        const LText(
+                          'نفد - احذفه من السلة',
+                          style: TextStyle(
+                            color: AppColors.danger,
+                            fontSize: 12,
+                          ),
+                        ),
                     ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: ('حذف').tr(context),
+                  onPressed: () => store.removeFromCart(entry),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                QuantityStepper(
+                  value: entry.quantity,
+                  itemName: entry.item.name,
+                  onDecrease: () => store.changeQuantity(entry, -1),
+                  onIncrease: available && entry.quantity < 20
+                      ? () => store.changeQuantity(entry, 1)
+                      : null,
+                ),
+                TextButton.icon(
+                  onPressed: () => _editNote(context),
+                  icon: const Icon(Icons.edit_note, size: 20),
+                  label: LText(
+                    entry.note.isEmpty ? 'أضف ملاحظة' : entry.note,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -191,13 +271,6 @@ class _CartEntryCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _stepBtn(IconData icon, VoidCallback? onTap) => IconButton(
-        visualDensity: VisualDensity.compact,
-        iconSize: 18,
-        onPressed: onTap,
-        icon: Icon(icon),
-      );
 }
 
 // =====================================================================
@@ -233,7 +306,10 @@ class _PickupTimeScreenState extends State<PickupTimeScreen> {
       setState(() {
         _slots = slots;
         // إذا امتلأ الوقت المختار في هذه الأثناء
-        if (_selected != null && !store.isSlotAvailable(slots[_selected] ?? StudentStore.slotCapacity)) {
+        if (_selected != null &&
+            !store.isSlotAvailable(
+              slots[_selected] ?? StudentStore.slotCapacity,
+            )) {
           _selected = null;
         }
       });
@@ -243,7 +319,10 @@ class _PickupTimeScreenState extends State<PickupTimeScreen> {
   }
 
   Future<void> _continue() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentScreen(pickupTime: _selected!)));
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => PaymentScreen(pickupTime: _selected!)),
+    );
     // عند الرجوع (مثلاً امتلأ الوقت) نحدّث الأوقات
     if (mounted) _load();
   }
@@ -262,8 +341,17 @@ class _PickupTimeScreenState extends State<PickupTimeScreen> {
           appBar: AppBar(
             backgroundColor: AppColors.darkGreen,
             foregroundColor: Colors.white,
-            title: const Text('وقت الاستلام', style: TextStyle(fontWeight: FontWeight.bold)),
-            actions: [IconButton(tooltip: 'تحديث', onPressed: _load, icon: const Icon(Icons.refresh))],
+            title: const LText(
+              'وقت الاستلام',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            actions: [
+              IconButton(
+                tooltip: ('تحديث').tr(context),
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
           ),
           body: _error != null
               ? EmptyState(
@@ -273,7 +361,7 @@ class _PickupTimeScreenState extends State<PickupTimeScreen> {
                   action: FilledButton.icon(
                     onPressed: _load,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('إعادة المحاولة'),
+                    label: const LText('إعادة المحاولة'),
                   ),
                 )
               : _slots == null
@@ -282,16 +370,27 @@ class _PickupTimeScreenState extends State<PickupTimeScreen> {
               ? const EmptyState(
                   icon: Icons.event_busy,
                   title: 'لا توجد أوقات استلام متاحة اليوم',
-                  subtitle: 'الكافيتريا مغلقة أو قاربت على الإغلاق، أو كل الأوقات محجوزة. جرّب كافيتريا أخرى.',
+                  subtitle:
+                      'الكافيتريا مغلقة أو قاربت على الإغلاق، أو كل الأوقات محجوزة. جرّب كافيتريا أخرى.',
                 )
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Text('متى تريد استلام طلبك من $cafeteria؟',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    LText(
+                      'متى تريد استلام طلبك من $cafeteria؟',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('أقرب وقت محسوب حسب وقت تحضير طلبك (${store.cartMaxPrepMinutes} دقيقة). الأوقات الممتلئة غير قابلة للاختيار.',
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
+                    LText(
+                      'أقرب وقت محسوب حسب وقت تحضير طلبك (${store.cartMaxPrepMinutes} دقيقة). الأوقات الممتلئة غير قابلة للاختيار.',
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 8,
@@ -302,7 +401,9 @@ class _PickupTimeScreenState extends State<PickupTimeScreen> {
                             time: entry.key,
                             booked: entry.value,
                             selected: _selected == entry.key,
-                            onTap: store.isSlotAvailable(entry.value) ? () => setState(() => _selected = entry.key) : null,
+                            onTap: store.isSlotAvailable(entry.value)
+                                ? () => setState(() => _selected = entry.key)
+                                : null,
                           ),
                       ],
                     ),
@@ -310,7 +411,9 @@ class _PickupTimeScreenState extends State<PickupTimeScreen> {
                   ],
                 ),
           bottomSheet: _BottomAction(
-            label: _selected == null ? 'اختر وقتاً للمتابعة' : 'المتابعة للدفع • ${formatTime(_selected!)}',
+            label: _selected == null
+                ? 'اختر وقتاً للمتابعة'
+                : 'المتابعة للدفع • ${formatTime(_selected!)}',
             enabled: _selected != null && cafeteria != null,
             onPressed: _continue,
           ),
@@ -326,7 +429,12 @@ class _SlotChip extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
 
-  const _SlotChip({required this.time, required this.booked, required this.selected, this.onTap});
+  const _SlotChip({
+    required this.time,
+    required this.booked,
+    required this.selected,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -339,23 +447,37 @@ class _SlotChip extends StatelessWidget {
         width: 100,
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.darkGreen : (full ? Colors.grey.shade200 : Colors.white),
+          color: selected
+              ? AppColors.darkGreen
+              : (full ? Colors.grey.shade200 : Colors.white),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? AppColors.darkGreen : Colors.grey.shade300),
+          border: Border.all(
+            color: selected ? AppColors.darkGreen : Colors.grey.shade300,
+          ),
         ),
         child: Column(
           children: [
-            Text(formatTime(time),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: selected ? Colors.white : (full ? Colors.grey : Colors.black87),
-                  decoration: full ? TextDecoration.lineThrough : null,
-                )),
-            Text(
+            LText(
+              formatTime(time),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: selected
+                    ? Colors.white
+                    : (full ? Colors.grey : Colors.black87),
+                decoration: full ? TextDecoration.lineThrough : null,
+              ),
+            ),
+            LText(
               full ? 'ممتلئ' : (left <= 1 ? 'آخر مكان' : 'متاح'),
               style: TextStyle(
                 fontSize: 11,
-                color: selected ? Colors.white70 : (full ? Colors.red.shade400 : (left <= 1 ? AppColors.orange : AppColors.lightGreen)),
+                color: selected
+                    ? Colors.white70
+                    : (full
+                          ? Colors.red.shade400
+                          : (left <= 1
+                                ? AppColors.orange
+                                : AppColors.lightGreen)),
               ),
             ),
           ],
@@ -411,38 +533,54 @@ class _PaymentScreenState extends State<PaymentScreen> {
     setState(() => _loading = true);
     try {
       final label = _methods.firstWhere((m) => m.$1 == _method).$2;
-      final r = await store.placeOrder(pickupTime: widget.pickupTime, paymentMethod: label);
+      final r = await store.placeOrder(
+        pickupTime: widget.pickupTime,
+        paymentMethod: label,
+      );
       if (!mounted) return;
       if (r.ok) {
         // الرجوع للشاشة الرئيسية وفتح "طلباتي" حيث يُتابَع الطلب
         final messenger = ScaffoldMessenger.of(context);
         Navigator.of(context).popUntil((route) => route.isFirst);
         store.openTab(StudentStore.ordersTab);
-        messenger.showSnackBar(SnackBar(
-          content: Text('تم إرسال طلبك #${r.message} بنجاح! تابع حالته من هنا'),
-          backgroundColor: AppColors.darkGreen,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ));
+        messenger.showSnackBar(
+          SnackBar(
+            content: LText(
+              'تم إرسال طلبك #${r.message} بنجاح! تابع حالته من هنا',
+            ),
+            backgroundColor: AppColors.darkGreen,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       } else {
         await _showError(r.message);
       }
     } catch (_) {
-      if (mounted) await _showError('انقطع الاتصال أثناء إرسال الطلب. تحقق من الإنترنت وحاول مرة أخرى، لن يتم خصم أي مبلغ.');
+      if (mounted) {
+        await _showError(
+          'انقطع الاتصال أثناء إرسال الطلب. تحقق من الإنترنت وحاول مرة أخرى، لن يتم خصم أي مبلغ.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _showError(String message) => showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          icon: Icon(Icons.error_outline, color: Colors.red.shade700, size: 40),
-          title: const Text('تعذّر إتمام الطلب'),
-          content: Text(message, textAlign: TextAlign.center),
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('حسناً'))],
+    context: context,
+    builder: (ctx) => AlertDialog(
+      icon: Icon(Icons.error_outline, color: Colors.red.shade700, size: 40),
+      title: const LText('تعذّر إتمام الطلب'),
+      content: LText(message, textAlign: TextAlign.center),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const LText('حسناً'),
         ),
-      );
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +589,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.darkGreen,
         foregroundColor: Colors.white,
-        title: const Text('الدفع وتأكيد الطلب', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const LText(
+          'الدفع وتأكيد الطلب',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
       body: Form(
         key: _formKey,
@@ -460,13 +601,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
           children: [
             // ملخص الطلب
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('ملخص الطلب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const LText(
+                      'ملخص الطلب',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     for (final e in store.cart)
                       Padding(
@@ -474,95 +623,139 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${e.quantity}× ', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Expanded(
-                              child: Text(e.note.isEmpty ? e.item.name : '${e.item.name}\n(${e.note})'),
+                            LText(
+                              '${e.quantity}× ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            Text(formatPrice(e.total)),
+                            Expanded(
+                              child: LText(
+                                e.note.isEmpty
+                                    ? e.item.name
+                                    : '${e.item.name}\n(${e.note})',
+                              ),
+                            ),
+                            LText(formatPrice(e.total)),
                           ],
                         ),
                       ),
                     const Divider(),
                     _summaryRow('الكافيتريا', store.cartCafeteria ?? ''),
                     _summaryRow('وقت الاستلام', formatTime(widget.pickupTime)),
-                    _summaryRow('المجموع', formatPrice(store.cartTotal), bold: true),
+                    _summaryRow(
+                      'المجموع',
+                      formatPrice(store.cartTotal),
+                      bold: true,
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            const Text('طريقة الدفع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const LText(
+              'طريقة الدفع',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             const SizedBox(height: 8),
             for (final m in _methods)
               Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: _method == m.$1 ? AppColors.darkGreen : Colors.transparent, width: 1.5),
+                  side: BorderSide(
+                    color: _method == m.$1
+                        ? AppColors.darkGreen
+                        : Colors.transparent,
+                    width: 1.5,
+                  ),
                 ),
                 child: ListTile(
                   onTap: () => setState(() => _method = m.$1),
                   leading: Icon(m.$3, color: AppColors.darkGreen),
-                  title: Text(m.$2),
+                  title: LText(m.$2),
                   trailing: Icon(
-                    _method == m.$1 ? Icons.radio_button_checked : Icons.radio_button_off,
+                    _method == m.$1
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
                     color: _method == m.$1 ? AppColors.darkGreen : Colors.grey,
                   ),
                 ),
               ),
             const SizedBox(height: 8),
             if (_method == 'card') ...[
-              TextFormField(
+              LTextFormField(
                 controller: _cardNumber,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(16)],
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(16),
+                ],
                 decoration: _field('رقم البطاقة (16 رقم)', Icons.credit_card),
-                validator: (v) => (v ?? '').length != 16 ? 'رقم البطاقة يجب أن يكون 16 رقماً' : null,
+                validator: (v) => (v ?? '').length != 16
+                    ? 'رقم البطاقة يجب أن يكون 16 رقماً'
+                    : null,
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
+                    child: LTextFormField(
                       controller: _expiry,
                       keyboardType: TextInputType.datetime,
                       decoration: _field('MM/YY', Icons.date_range),
-                      validator: (v) => RegExp(r'^(0[1-9]|1[0-2])/\d{2}$').hasMatch(v ?? '') ? null : 'صيغة غير صحيحة',
+                      validator: (v) =>
+                          RegExp(r'^(0[1-9]|1[0-2])/\d{2}$').hasMatch(v ?? '')
+                          ? null
+                          : 'صيغة غير صحيحة',
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: TextFormField(
+                    child: LTextFormField(
                       controller: _cvv,
                       obscureText: true,
                       keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
                       decoration: _field('CVV', Icons.lock_outline),
-                      validator: (v) => (v ?? '').length != 3 ? '3 أرقام' : null,
+                      validator: (v) =>
+                          (v ?? '').length != 3 ? '3 أرقام' : null,
                     ),
                   ),
                 ],
               ),
             ],
             if (_method == 'wallet')
-              TextFormField(
+              LTextFormField(
                 controller: _walletPhone,
                 keyboardType: TextInputType.phone,
                 decoration: _field('رقم المحفظة', Icons.phone_iphone),
-                validator: (v) => RegExp(r'^07\d{9}$').hasMatch(StudentStore.normalizePhone(v ?? '')) ? null : 'رقم غير صالح',
+                validator: (v) =>
+                    RegExp(
+                      r'^07\d{9}$',
+                    ).hasMatch(StudentStore.normalizePhone(v ?? ''))
+                    ? null
+                    : 'رقم غير صالح',
               ),
             if (_method != 'cash')
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text('⚠️ الدفع الإلكتروني تجريبي حالياً ولن يتم خصم أي مبلغ.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                child: LText(
+                  '⚠️ الدفع الإلكتروني تجريبي حالياً ولن يتم خصم أي مبلغ.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                ),
               ),
             const SizedBox(height: 100),
           ],
         ),
       ),
       bottomSheet: _BottomAction(
-        label: _method == 'cash' ? 'تأكيد الطلب' : 'ادفع ${formatPrice(store.cartTotal)}',
+        label: _method == 'cash'
+            ? 'تأكيد الطلب'
+            : 'ادفع ${formatPrice(store.cartTotal)}',
         enabled: !_loading && store.cart.isNotEmpty,
         loading: _loading,
         onPressed: _pay,
@@ -571,30 +764,38 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   InputDecoration _field(String label, IconData icon) => InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      );
+    labelText: label,
+    prefixIcon: Icon(icon),
+    filled: true,
+    fillColor: Colors.white,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+  );
 }
 
 // =================== عناصر مشتركة ===================
 Widget _summaryRow(String label, String value, {bool bold = false}) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Text(label, style: TextStyle(color: bold ? Colors.black87 : Colors.grey.shade700, fontWeight: bold ? FontWeight.bold : null)),
-          const Spacer(),
-          Text(value,
-              style: TextStyle(
-                fontWeight: bold ? FontWeight.bold : FontWeight.w500,
-                fontSize: bold ? 17 : 14,
-                color: bold ? AppColors.darkGreen : null,
-              )),
-        ],
+  padding: const EdgeInsets.symmetric(vertical: 3),
+  child: Row(
+    children: [
+      LText(
+        label,
+        style: TextStyle(
+          color: bold ? Colors.black87 : Colors.grey.shade700,
+          fontWeight: bold ? FontWeight.bold : null,
+        ),
       ),
-    );
+      const Spacer(),
+      LText(
+        value,
+        style: TextStyle(
+          fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+          fontSize: bold ? 17 : 14,
+          color: bold ? AppColors.darkGreen : null,
+        ),
+      ),
+    ],
+  ),
+);
 
 class _BottomAction extends StatelessWidget {
   final String label;
@@ -602,7 +803,12 @@ class _BottomAction extends StatelessWidget {
   final bool loading;
   final VoidCallback onPressed;
 
-  const _BottomAction({required this.label, required this.enabled, required this.onPressed, this.loading = false});
+  const _BottomAction({
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+    this.loading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -616,12 +822,27 @@ class _BottomAction extends StatelessWidget {
           child: FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.darkGreen,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
             onPressed: enabled ? onPressed : null,
             child: loading
-                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                : Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : LText(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
           ),
         ),
       ),

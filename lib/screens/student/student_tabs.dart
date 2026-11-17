@@ -1,6 +1,10 @@
+import '../../localization/localized_widgets.dart';
 import 'package:flutter/material.dart';
 
 import '../../constants/app_colors.dart';
+import '../../constants/app_theme.dart';
+import '../../widgets/app_feedback.dart';
+import 'current_order_card.dart';
 import '../../models/order_model.dart';
 import 'cart_checkout_screens.dart';
 import 'menu_screen.dart';
@@ -24,10 +28,19 @@ class CafeteriasTab extends StatelessWidget {
         // المفتوحة أولاً ثم المزدحمة ثم المغلقة
         list.sort((a, b) => a.status.index.compareTo(b.status.index));
         final active = store.activeOrders;
+        active.sort((a, b) {
+          if (a.status == OrderStatus.ready && b.status != OrderStatus.ready) {
+            return -1;
+          }
+          if (b.status == OrderStatus.ready && a.status != OrderStatus.ready) {
+            return 1;
+          }
+          return (a.pickupTime ?? a.date).compareTo(b.pickupTime ?? b.date);
+        });
 
         if (!store.cafeteriasLoaded) {
           return store.connectionError == null
-              ? const Center(child: CircularProgressIndicator())
+              ? const LoadingCards(label: 'جارٍ تحميل الكافيتريات...')
               : EmptyState(
                   icon: Icons.wifi_off,
                   title: 'تعذّر تحميل الكافيتريات',
@@ -35,7 +48,7 @@ class CafeteriasTab extends StatelessWidget {
                   action: FilledButton.icon(
                     onPressed: store.refresh,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('إعادة المحاولة'),
+                    label: const LText('إعادة المحاولة'),
                   ),
                 );
         }
@@ -45,7 +58,7 @@ class CafeteriasTab extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
+              LText(
                 'مرحباً ${store.currentStudent?.name.split(' ').first ?? ''} 👋',
                 style: const TextStyle(
                   fontSize: 20,
@@ -54,35 +67,16 @@ class CafeteriasTab extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
+              LText(
                 'من أي كافيتريا تريد أن تطلب اليوم؟',
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               const SizedBox(height: 16),
-              // تتبع الطلبات أصبح في تبويب "طلباتي"؛ هنا تذكير صغير فقط
               if (active.isNotEmpty)
-                Card(
-                  color: AppColors.orange.withValues(alpha: 0.12),
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: ListTile(
-                    onTap: () => store.openTab(StudentStore.ordersTab),
-                    leading: const Icon(
-                      Icons.delivery_dining,
-                      color: AppColors.orange,
-                    ),
-                    title: Text(
-                      active.length == 1
-                          ? 'لديك طلب قيد المتابعة'
-                          : 'لديك ${active.length} طلبات قيد المتابعة',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: const Text('تابع حالتها من "طلباتي"'),
-                    trailing: const Icon(Icons.chevron_left),
-                  ),
+                CurrentOrderCard(
+                  order: active.first,
+                  activeCount: active.length,
+                  onViewAll: () => store.openTab(StudentStore.ordersTab),
                 ),
               for (final c in list) _CafeteriaCard(info: c),
             ],
@@ -107,8 +101,11 @@ class _CafeteriaCard extends StatelessWidget {
       opacity: closed ? 0.6 : 1,
       child: Card(
         margin: const EdgeInsets.only(bottom: 12),
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDesign.radius),
+          side: const BorderSide(color: AppColors.border),
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => Navigator.push(
@@ -137,22 +134,22 @@ class _CafeteriaCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              info.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
+                          LText(
+                            info.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
                             ),
                           ),
+                          const SizedBox(height: 6),
                           CafeteriaStatusChip(status: status),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      LText(
                         info.location,
                         style: TextStyle(
                           color: Colors.grey.shade600,
@@ -188,7 +185,12 @@ class _CafeteriaCard extends StatelessWidget {
     children: [
       Icon(icon, size: 14, color: Colors.grey.shade600),
       const SizedBox(width: 3),
-      Text(text, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+      Flexible(
+        child: LText(
+          text,
+          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+        ),
+      ),
     ],
   );
 }
@@ -233,7 +235,7 @@ class MyOrdersTab extends StatelessWidget {
 
   Widget _section(String t) => Padding(
     padding: const EdgeInsets.only(bottom: 8, top: 4),
-    child: Text(
+    child: LText(
       t,
       style: const TextStyle(
         fontWeight: FontWeight.bold,
@@ -267,7 +269,7 @@ class _OrderCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
+                  LText(
                     '#${order.id}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
@@ -275,7 +277,7 @@ class _OrderCard extends StatelessWidget {
                   OrderStatusChip(status: order.status),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
+                    child: LText(
                       '${d.day}/${d.month} • ${formatTime(d)}',
                       textAlign: TextAlign.end,
                       maxLines: 1,
@@ -289,12 +291,12 @@ class _OrderCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 6),
-              Text(
+              LText(
                 order.cafeteriaName,
                 style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
               ),
               const SizedBox(height: 4),
-              Text(
+              LText(
                 order.lines.isEmpty
                     ? order.details
                     : order.lines
@@ -316,7 +318,7 @@ class _OrderCard extends StatelessWidget {
                       color: AppColors.darkGreen,
                     ),
                     const SizedBox(width: 4),
-                    Text(
+                    LText(
                       'الاستلام ${order.pickupTime == null ? order.time : formatTime(order.pickupTime!)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
@@ -350,7 +352,7 @@ class _OrderCard extends StatelessWidget {
                             : Icons.where_to_vote,
                         size: 18,
                       ),
-                      label: Text(order.studentArrived ? 'رمز QR' : 'وصلت'),
+                      label: LText(order.studentArrived ? 'رمز QR' : 'وصلت'),
                     ),
                   ],
                 ),
@@ -358,7 +360,7 @@ class _OrderCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  Text(
+                  LText(
                     formatPrice(order.price),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
@@ -374,7 +376,7 @@ class _OrderCard extends StatelessWidget {
                     TextButton.icon(
                       onPressed: () => showRateOrderDialog(context, order),
                       icon: const Icon(Icons.star_outline, size: 18),
-                      label: const Text('قيّم'),
+                      label: const LText('قيّم'),
                     ),
                   if (done)
                     FilledButton.tonalIcon(
@@ -392,12 +394,12 @@ class _OrderCard extends StatelessWidget {
                         }
                       },
                       icon: const Icon(Icons.replay, size: 18),
-                      label: const Text('أعد الطلب'),
+                      label: const LText('أعد الطلب'),
                     ),
                   if (!done)
                     TextButton(
                       onPressed: () => openOrderTracking(context, order.id),
-                      child: const Text('التفاصيل'),
+                      child: const LText('التفاصيل'),
                     ),
                 ],
               ),
@@ -434,7 +436,7 @@ class _MiniTracker extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                LText(
                   OrderStatus.studentLabels[OrderStatus.steps[i]]!,
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -487,11 +489,11 @@ class FavoritesTab extends StatelessWidget {
               child: ListTile(
                 contentPadding: const EdgeInsets.all(10),
                 leading: MenuItemImage(item: item, size: 52),
-                title: Text(
+                title: LText(
                   item.name,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Text(
+                subtitle: LText(
                   '${item.cafeteriaName ?? ''}\n${item.isAvailable ? formatPrice(item.priceValue) : 'منتهٍ حالياً'}',
                   style: TextStyle(color: item.isAvailable ? null : Colors.red),
                 ),
@@ -500,7 +502,7 @@ class FavoritesTab extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      tooltip: 'إزالة من المفضلة',
+                      tooltip: ('إزالة من المفضلة').tr(context),
                       icon: const Icon(Icons.favorite, color: Colors.red),
                       onPressed: () async {
                         final r = await store.toggleFavorite(item);
@@ -508,7 +510,7 @@ class FavoritesTab extends StatelessWidget {
                       },
                     ),
                     IconButton.filled(
-                      tooltip: 'أضف للسلة',
+                      tooltip: ('أضف للسلة').tr(context),
                       style: IconButton.styleFrom(
                         backgroundColor: AppColors.darkGreen,
                       ),
@@ -577,15 +579,15 @@ class NotificationsTab extends StatelessWidget {
                     size: 20,
                   ),
                 ),
-                title: Text(
+                title: LText(
                   n.title,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
                 ),
-                subtitle: Text(n.body),
-                trailing: Text(
+                subtitle: LText(n.body),
+                trailing: LText(
                   formatTime(n.time),
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),

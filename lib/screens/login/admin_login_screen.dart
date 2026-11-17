@@ -1,4 +1,6 @@
+import '../../localization/localized_widgets.dart';
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
 
 import '../../services/cafeteria_admin_store.dart';
 import '../../services/server_settings_dialog.dart';
@@ -19,6 +21,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   String? _loadError;
   int? _selectedCafeteria;
   bool _loading = false;
+  bool _obscureCode = true;
 
   @override
   void initState() {
@@ -43,7 +46,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: LText(msg), backgroundColor: Colors.red));
   }
 
   Future<void> _loginAdmin() async {
@@ -60,9 +65,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       return;
     }
     _codeController.clear();
+    setState(() => _obscureCode = true);
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => DashboardScreen(cafeteriaName: _store.cafeteria!.name)),
+      MaterialPageRoute(
+        builder: (context) =>
+            DashboardScreen(cafeteriaName: _store.cafeteria!.name),
+      ),
     );
   }
 
@@ -70,21 +79,34 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: const LText(
           'تسجيل دخول مسؤول الكافيتريا',
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        backgroundColor: Colors.green.shade900,
+        backgroundColor: AppColors.darkGreen,
         iconTheme: const IconThemeData(color: Colors.white),
         centerTitle: true,
+        actions: const [LanguageButton()],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             if (_loadError != null) ...[
-              Text(_loadError!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
-              TextButton.icon(onPressed: _loadCafeterias, icon: const Icon(Icons.refresh), label: const Text('إعادة المحاولة')),
+              LText(
+                _loadError!,
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+              TextButton.icon(
+                onPressed: _loadCafeterias,
+                icon: const Icon(Icons.refresh),
+                label: const LText('إعادة المحاولة'),
+              ),
               const SizedBox(height: 12),
             ] else if (_cafeterias == null) ...[
               const LinearProgressIndicator(),
@@ -92,25 +114,38 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
             ],
             DropdownButtonFormField<int>(
               initialValue: _selectedCafeteria,
-              hint: const Text('اختر الكافيتريا الخاصة بك'),
+              hint: const LText('اختر الكافيتريا الخاصة بك'),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.storefront),
-              ),
+              ).localized(context),
               items: (_cafeterias ?? const <CafeteriaInfo>[])
-                  .map((c) => DropdownMenuItem(value: c.id, child: Text(c.name)))
+                  .map(
+                    (c) => DropdownMenuItem(value: c.id, child: LText(c.name)),
+                  )
                   .toList(),
               onChanged: (val) => setState(() => _selectedCafeteria = val),
             ),
             const SizedBox(height: 16),
-            TextField(
+            LTextField(
               controller: _codeController,
-              obscureText: true,
+              obscureText: _obscureCode,
               onSubmitted: (_) => _loginAdmin(),
-              decoration: const InputDecoration(
-                labelText: 'الرمز السري للكافيتريا (8 خانات)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock),
+              decoration: InputDecoration(
+                labelText: 'الرمز السري للكافيتريا',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.lock),
+                suffixIcon: IconButton(
+                  tooltip: (_obscureCode ? 'إظهار الرمز' : 'إخفاء الرمز').tr(
+                    context,
+                  ),
+                  icon: Icon(
+                    _obscureCode
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  onPressed: () => setState(() => _obscureCode = !_obscureCode),
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -119,13 +154,26 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade900,
+                  backgroundColor: AppColors.darkGreen,
                   foregroundColor: Colors.white,
                 ),
                 onPressed: _loading ? null : _loginAdmin,
                 child: _loading
-                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                    : const Text('دخول لوحة التحكم', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const LText(
+                        'دخول لوحة التحكم',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
             const SizedBox(height: 12),

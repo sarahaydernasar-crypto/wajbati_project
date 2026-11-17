@@ -1,6 +1,6 @@
 // اختبار تدفق الطلب كاملاً مع السيرفر الحقيقي (FastAPI).
 // شغّل السيرفر أولاً ثم:
-//   flutter test test/server_integration_test.dart --dart-define=WAJBATI_API=http://localhost:8000
+//   flutter test test/server_integration_test.dart --dart-define=WAJBATI_API=http://localhost:8001
 // يتم تخطي الاختبار تلقائياً إذا لم يكن WAJBATI_API محدداً أو كان السيرفر لا يعمل.
 import 'dart:math';
 
@@ -41,10 +41,8 @@ void main() {
       // 1) إنشاء حساب جديد
       final phone =
           '0779${Random().nextInt(9999999).toString().padLeft(7, '0')}';
-      final uni = '${Random().nextInt(99999999) + 10000}';
       final reg = await student.register(
         name: 'طالب اختبار',
-        universityId: uni,
         phone: phone,
         password: 'secret1',
       );
@@ -130,7 +128,7 @@ void main() {
       student.logout();
     },
     skip: apiUrl.isEmpty
-        ? 'حدد --dart-define=WAJBATI_API=http://localhost:8000 لتشغيله'
+        ? 'حدد --dart-define=WAJBATI_API=http://localhost:8001 لتشغيله'
         : null,
   );
 }

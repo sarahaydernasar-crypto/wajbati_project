@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -28,6 +28,21 @@ class Student(Base):
     name: Mapped[str] = mapped_column(String(100))
     university_id: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     phone: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(100))
+    auth_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+    @property
+    def public_university_id(self) -> str:
+        # New accounts keep an internal key for the legacy non-null unique column.
+        return "" if self.university_id.startswith("sys_") else self.university_id
+
+
+class PlatformAdmin(Base):
+    __tablename__ = "platform_admins"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(100))
     auth_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
@@ -64,6 +79,8 @@ class MenuItem(Base):
     image_mime: Mapped[str | None] = mapped_column(String(30), nullable=True)
     image_version: Mapped[int] = mapped_column(Integer, default=0)  # لتجاوز ذاكرة المتصفح عند تغيير الصورة
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)  # حذف ناعم حتى يبقى سجل الطلبات سليماً
+    ingredients: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    removable_ingredients: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
 
     cafeteria: Mapped[Cafeteria] = relationship(back_populates="menu_items")
 
@@ -83,6 +100,7 @@ class Order(Base):
     rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rating_comment: Mapped[str | None] = mapped_column(String(300), nullable=True)
     closure_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
     student: Mapped[Student] = relationship()

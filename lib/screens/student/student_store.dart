@@ -63,6 +63,7 @@ class CafeteriaInfo {
   final CafeteriaStatus? manualStatus;
   final int activeOrders;
   final int availableItems;
+  final DateTime? serverTime;
 
   const CafeteriaInfo({
     required this.id,
@@ -74,6 +75,7 @@ class CafeteriaInfo {
     this.manualStatus,
     this.activeOrders = 0,
     this.availableItems = 0,
+    this.serverTime,
   });
 
   factory CafeteriaInfo.fromApi(Map<String, dynamic> j) => CafeteriaInfo(
@@ -88,6 +90,9 @@ class CafeteriaInfo {
         : cafeteriaStatusFrom(j['manual_status'] as String),
     activeOrders: (j['active_orders'] as int?) ?? 0,
     availableItems: (j['available_items'] as int?) ?? 0,
+    serverTime: j['server_time'] == null
+        ? null
+        : DateTime.tryParse(j['server_time'] as String),
   );
 
   String get hoursLabel =>
@@ -284,12 +289,10 @@ class StudentStore extends ChangeNotifier {
 
   Future<ActionResult> register({
     required String name,
-    required String universityId,
     required String phone,
     required String password,
   }) => _auth('/auth/register', {
     'name': name.trim(),
-    'university_id': universityId.trim(),
     'phone': normalizePhone(phone),
     'password': password,
   }, 'تم إنشاء الحساب بنجاح');
@@ -366,7 +369,7 @@ class StudentStore extends ChangeNotifier {
     try {
       // إعادة جلب بيانات الحساب إذا فتح التطبيق والسيرفر متوقف
       if (currentStudent != null &&
-          currentStudent!.universityId.isEmpty &&
+          currentStudent!.phone.isEmpty &&
           api.studentToken != null) {
         final me = await api.get('/me', auth: ApiRole.student);
         currentStudent = StudentAccount.fromApi(
@@ -462,6 +465,8 @@ class StudentStore extends ChangeNotifier {
               'available': e.item.isAvailable,
               'image_url': e.item.imageUrl,
               'emoji': e.item.emoji,
+              'ingredients': e.item.ingredients,
+              'removable_ingredients': e.item.removableIngredients,
             },
           },
       ],
@@ -495,6 +500,9 @@ class StudentStore extends ChangeNotifier {
     int quantity = 1,
     String note = '',
   }) {
+    if (quantity < 1 || quantity > 20) {
+      return const ActionResult.failure('اختر كمية من 1 إلى 20.');
+    }
     final current = latest(item);
     if (current == null || !current.isAvailable) {
       return ActionResult.failure('عذراً، "${item.name}" منتهٍ حالياً.');
@@ -513,6 +521,11 @@ class StudentStore extends ChangeNotifier {
     final existing = cart.where(
       (e) => e.item.id == item.id && e.note == note.trim(),
     );
+    if (existing.isNotEmpty && existing.first.quantity + quantity > 20) {
+      return const ActionResult.failure(
+        'الحد الأقصى 20 قطعة لهذا الصنف بنفس الملاحظة.',
+      );
+    }
     if (existing.isNotEmpty) {
       existing.first.quantity += quantity;
     } else {
@@ -524,11 +537,19 @@ class StudentStore extends ChangeNotifier {
   }
 
   void changeQuantity(CartEntry entry, int delta) {
+    if (delta > 0 && entry.quantity + delta > 20) return;
     entry.quantity += delta;
     if (entry.quantity <= 0) cart.remove(entry);
     if (cart.isEmpty) cartCafeteria = null;
     unawaited(_saveCart());
     notifyListeners();
+  }
+
+  void decreaseItem(MenuItemModel item) {
+    final matches = cart.where((entry) => entry.item.id == item.id).toList();
+    if (matches.isEmpty) return;
+    final plain = matches.where((entry) => entry.note.isEmpty);
+    changeQuantity(plain.isNotEmpty ? plain.first : matches.last, -1);
   }
 
   void updateNote(CartEntry entry, String note) {

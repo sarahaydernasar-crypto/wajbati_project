@@ -10,7 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from .database import get_db
-from .models import Cafeteria, Student
+from .models import Cafeteria, Student, PlatformAdmin
 from .settings import production
 
 SECRET_KEY = os.getenv("WAJBATI_SECRET", "")
@@ -89,6 +89,18 @@ def current_cafeteria(
     return cafeteria
 
 
+def current_platform_admin(
+    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    db: Annotated[Session, Depends(get_db)],
+) -> PlatformAdmin:
+    subject, version = _decode(creds, "platform")
+    admin = db.get(PlatformAdmin, subject)
+    if admin is None or admin.auth_version != version:
+        raise HTTPException(401, "انتهت الجلسة، سجّل الدخول من جديد")
+    return admin
+
+
+PlatformDep = Annotated[PlatformAdmin, Depends(current_platform_admin)]
 StudentDep = Annotated[Student, Depends(current_student)]
 CafeteriaDep = Annotated[Cafeteria, Depends(current_cafeteria)]
 DbDep = Annotated[Session, Depends(get_db)]

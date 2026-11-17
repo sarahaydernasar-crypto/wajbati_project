@@ -1,3 +1,4 @@
+import '../../localization/localized_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
@@ -5,6 +6,7 @@ import '../../constants/app_colors.dart';
 import '../../services/server_settings_dialog.dart';
 import '../login/admin_login_screen.dart';
 import '../student_order_screen.dart';
+import '../platform_screen.dart';
 import 'student_store.dart';
 import 'student_widgets.dart';
 
@@ -68,7 +70,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextFormField(
+            LTextFormField(
               controller: _phone,
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
@@ -76,7 +78,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
               validator: _validatePhone,
             ),
             const SizedBox(height: 14),
-            TextFormField(
+            LTextFormField(
               controller: _password,
               obscureText: _obscure,
               onFieldSubmitted: (_) => _submit(),
@@ -98,10 +100,11 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
               onPressed: _submit,
             ),
             const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Text('ليس لديك حساب؟'),
+                const LText('ليس لديك حساب؟'),
                 TextButton(
                   onPressed: () => Navigator.push(
                     context,
@@ -109,7 +112,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
                       builder: (_) => const StudentRegisterScreen(),
                     ),
                   ),
-                  child: const Text(
+                  child: const LText(
                     'أنشئ حساباً',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
@@ -123,7 +126,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
                   color: AppColors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text(
+                child: const LText(
                   'حساب تجريبي: 07700000000 / 123456',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12),
@@ -136,12 +139,20 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
                 MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
               ),
               icon: const Icon(Icons.storefront, size: 18),
-              label: const Text('دخول مسؤول الكافيتريا'),
+              label: const LText('دخول مسؤول الكافيتريا'),
               style: TextButton.styleFrom(
                 foregroundColor: Colors.grey.shade700,
               ),
             ),
             const ServerSettingsButton(),
+            TextButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PlatformScreen()),
+              ),
+              icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
+              label: const LText('إدارة المنصة'),
+            ),
           ],
         ),
       ),
@@ -160,7 +171,6 @@ class StudentRegisterScreen extends StatefulWidget {
 class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
-  final _uniId = TextEditingController();
   final _phone = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
@@ -168,7 +178,7 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _uniId, _phone, _password, _confirm]) {
+    for (final c in [_name, _phone, _password, _confirm]) {
       c.dispose();
     }
     super.dispose();
@@ -180,7 +190,6 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
     try {
       final r = await StudentStore.instance.register(
         name: _name.text,
-        universityId: _uniId.text,
         phone: _phone.text,
         password: _password.text,
       );
@@ -217,7 +226,7 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextFormField(
+            LTextFormField(
               controller: _name,
               textInputAction: TextInputAction.next,
               decoration: _input('الاسم الكامل', Icons.person_outline),
@@ -226,18 +235,7 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
                   : null,
             ),
             const SizedBox(height: 14),
-            TextFormField(
-              controller: _uniId,
-              keyboardType: TextInputType.number,
-              textInputAction: TextInputAction.next,
-              decoration: _input('الرقم الجامعي', Icons.badge_outlined),
-              validator: (v) =>
-                  (v == null || !RegExp(r'^\d{4,12}$').hasMatch(v.trim()))
-                  ? 'رقم جامعي غير صالح (أرقام فقط)'
-                  : null,
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
+            LTextFormField(
               controller: _phone,
               keyboardType: TextInputType.phone,
               textInputAction: TextInputAction.next,
@@ -245,7 +243,7 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
               validator: _validatePhone,
             ),
             const SizedBox(height: 14),
-            TextFormField(
+            LTextFormField(
               controller: _password,
               obscureText: true,
               textInputAction: TextInputAction.next,
@@ -255,7 +253,7 @@ class _StudentRegisterScreenState extends State<StudentRegisterScreen> {
                   : null,
             ),
             const SizedBox(height: 14),
-            TextFormField(
+            LTextFormField(
               controller: _confirm,
               obscureText: true,
               onFieldSubmitted: (_) => _submit(),
@@ -325,7 +323,7 @@ class _PrimaryButton extends StatelessWidget {
                   color: Colors.white,
                 ),
               )
-            : Text(
+            : LText(
                 label,
                 style: const TextStyle(
                   fontSize: 16,
@@ -354,13 +352,13 @@ class _AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgCream,
-      appBar: showBack
-          ? AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              foregroundColor: AppColors.darkGreen,
-            )
-          : null,
+      appBar: AppBar(
+        automaticallyImplyLeading: showBack,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: AppColors.darkGreen,
+        actions: const [LanguageButton(color: AppColors.darkGreen)],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -385,7 +383,7 @@ class _AuthScaffold extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  LText(
                     title,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
@@ -395,7 +393,7 @@ class _AuthScaffold extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
+                  LText(
                     subtitle,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey.shade700),

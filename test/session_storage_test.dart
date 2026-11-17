@@ -43,6 +43,32 @@ void main() {
     },
   );
 
+  test(
+    'old local endpoints move to the app port without forwarding sessions',
+    () async {
+      for (final host in ['localhost', '127.0.0.1', '10.0.2.2']) {
+        final previous = 'http://$host:8000';
+        FlutterSecureStorage.setMockInitialValues({
+          '$previous.wajbati.studentToken': 'previous-server-token',
+        });
+        SharedPreferences.setMockInitialValues({
+          'wajbati.apiUrl': previous,
+          'wajbati.studentToken': 'legacy-previous-server-token',
+        });
+        await api.init(
+          client: MockClient((_) async => http.Response('[]', 200)),
+        );
+        expect(api.baseUrl, ApiClient.defaultUrl);
+        expect(Uri.parse(api.baseUrl).port, 8001);
+        expect(api.studentToken, isNull);
+        expect(
+          (await SharedPreferences.getInstance()).getString('wajbati.apiUrl'),
+          isNull,
+        );
+      }
+    },
+  );
+
   test('changing API servers never forwards the previous session', () async {
     String? authorization;
     FlutterSecureStorage.setMockInitialValues({});

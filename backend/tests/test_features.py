@@ -19,6 +19,40 @@ def tiny_png() -> bytes:
 
 
 # ---------------- صور الأصناف ----------------
+def test_create_menu_item_with_image_atomically(client, admin_token):
+    before = client.get("/cafeterias/1/menu").json()
+    response = client.post("/admin/menu/with-image", headers=auth(admin_token),
+                           data={"name": "طبق جديد", "price": "4500", "prep_minutes": "12"},
+                           files={"file": ("meal.png", tiny_png(), "image/png")})
+    assert response.status_code == 201, response.text
+    item = response.json()
+    assert item["name"] == "طبق جديد" and item["price"] == 4500
+    assert item["prep_minutes"] == 12
+    assert item["image_url"] == f"/menu/{item['id']}/image?v=1"
+    assert client.get(item["image_url"]).content == tiny_png()
+    assert len(client.get("/cafeterias/1/menu").json()) == len(before) + 1
+
+
+def test_invalid_image_or_fields_never_create_menu_item(client, admin_token, student_token):
+    before = client.get("/cafeterias/1/menu").json()
+    fields = {"name": "طبق", "price": "4500", "prep_minutes": "12"}
+    path = "/admin/menu/with-image"
+    invalid = client.post(path, headers=auth(admin_token), data=fields,
+                          files={"file": ("not.png", b"not an image", "image/png")})
+    assert invalid.status_code == 400
+    oversized = client.post(path, headers=auth(admin_token), data=fields,
+                            files={"file": ("large.png", tiny_png() + b"0" * (2 * 1024 * 1024), "image/png")})
+    assert oversized.status_code == 413
+    for changes in ({"price": "-1"}, {"prep_minutes": "121"}, {"name": "  "}):
+        response = client.post(path, headers=auth(admin_token), data={**fields, **changes},
+                               files={"file": ("meal.png", tiny_png(), "image/png")})
+        assert response.status_code == 422, response.text
+    unauthorized = client.post(path, headers=auth(student_token), data=fields,
+                               files={"file": ("meal.png", tiny_png(), "image/png")})
+    assert unauthorized.status_code == 403
+    assert client.get("/cafeterias/1/menu").json() == before
+
+
 def test_menu_image_upload_and_serve(client, admin_token):
     item = client.get("/cafeterias/1/menu").json()[0]
     assert item["image_url"] is None

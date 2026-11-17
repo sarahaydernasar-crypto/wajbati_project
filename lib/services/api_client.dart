@@ -19,7 +19,7 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-enum ApiRole { student, cafeteria }
+enum ApiRole { student, cafeteria, platform }
 
 /// الاتصال بسيرفر وجباتي (FastAPI)
 class ApiClient {
@@ -29,9 +29,10 @@ class ApiClient {
   static const _kUrl = 'wajbati.apiUrl';
   static const _kStudentToken = 'wajbati.studentToken';
   static const _kCafeteriaToken = 'wajbati.cafeteriaToken';
+  static const _kPlatformToken = 'wajbati.platformToken';
   static const timeout = Duration(seconds: 12);
 
-  /// يمكن تحديده وقت البناء: flutter run --dart-define=API_URL=http://192.168.1.10:8000
+  /// يمكن تحديده وقت البناء: flutter run --dart-define=API_URL=http://192.168.1.10:8001
   static const _definedUrl = String.fromEnvironment('API_URL');
 
   http.Client _http = http.Client();
@@ -40,25 +41,54 @@ class ApiClient {
   String baseUrl = defaultUrl;
   String? studentToken;
   String? cafeteriaToken;
+  String? platformToken;
 
   static String get defaultUrl {
     if (_definedUrl.isNotEmpty) return _definedUrl;
     // محاكي أندرويد يصل لجهاز الكمبيوتر عبر 10.0.2.2
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8000';
+      return 'http://10.0.2.2:8001';
     }
-    return 'http://localhost:8000';
+    return 'http://localhost:8001';
+  }
+
+  static bool _previousLocalDefault(String? value) {
+    if (value == null) return false;
+    final uri = Uri.tryParse(value.trim());
+    return uri != null &&
+        uri.scheme == 'http' &&
+        uri.port == 8000 &&
+        const {'localhost', '127.0.0.1', '10.0.2.2'}.contains(uri.host) &&
+        (uri.path.isEmpty || uri.path == '/') &&
+        !uri.hasQuery &&
+        !uri.hasFragment;
   }
 
   Future<void> init({http.Client? client}) async {
     if (client != null) _http = client;
     studentToken = null;
     cafeteriaToken = null;
+    platformToken = null;
     try {
       _prefs = await SharedPreferences.getInstance();
-      baseUrl = _prefs!.getString(_kUrl) ?? defaultUrl;
+      final savedUrl = _prefs!.getString(_kUrl);
+      if (kDebugMode && _previousLocalDefault(savedUrl)) {
+        await _prefs!.remove(_kUrl);
+        // The old endpoint may now belong to another project.
+        await _prefs!.remove(_kStudentToken);
+        await _prefs!.remove(_kCafeteriaToken);
+        await _prefs!.remove(_kPlatformToken);
+      }
+      // An explicit build endpoint wins over saved development settings.
+      baseUrl =
+          !kDebugMode ||
+              _definedUrl.isNotEmpty ||
+              _previousLocalDefault(savedUrl)
+          ? defaultUrl
+          : (savedUrl ?? defaultUrl);
       studentToken = await _readToken(_kStudentToken);
       cafeteriaToken = await _readToken(_kCafeteriaToken);
+      platformToken = await _readToken(_kPlatformToken);
     } catch (e) {
       debugPrint('تعذّر قراءة الإعدادات المحفوظة: $e');
     }
@@ -88,17 +118,24 @@ class ApiClient {
       // Never send a session issued by one server to a different server.
       studentToken = null;
       cafeteriaToken = null;
+      platformToken = null;
     }
     baseUrl = u;
     await _prefs?.setString(_kUrl, u);
   }
 
   Future<void> setToken(ApiRole role, String? token) async {
-    final key = role == ApiRole.student ? _kStudentToken : _kCafeteriaToken;
+    final key = switch (role) {
+      ApiRole.student => _kStudentToken,
+      ApiRole.cafeteria => _kCafeteriaToken,
+      ApiRole.platform => _kPlatformToken,
+    };
     if (role == ApiRole.student) {
       studentToken = token;
-    } else {
+    } else if (role == ApiRole.cafeteria) {
       cafeteriaToken = token;
+    } else {
+      platformToken = token;
     }
     if (token == null) {
       await _secureStorage.delete(key: '$baseUrl.$key');
@@ -141,12 +178,18 @@ class ApiClient {
     List<int> bytes,
     String filename, {
     required ApiRole auth,
+    Map<String, String> fields = const {},
   }) async {
     final req = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'))
+      ..fields.addAll(fields)
       ..files.add(
         http.MultipartFile.fromBytes('file', bytes, filename: filename),
       );
-    final token = auth == ApiRole.student ? studentToken : cafeteriaToken;
+    final token = switch (auth) {
+      ApiRole.student => studentToken,
+      ApiRole.cafeteria => cafeteriaToken,
+      ApiRole.platform => platformToken,
+    };
     if (token != null) req.headers['Authorization'] = 'Bearer $token';
     final http.Response res;
     try {
@@ -178,6 +221,7 @@ class ApiClient {
     final token = switch (auth) {
       ApiRole.student => studentToken,
       ApiRole.cafeteria => cafeteriaToken,
+      ApiRole.platform => platformToken,
       null => null,
     };
     if (token != null) headers['Authorization'] = 'Bearer $token';

@@ -143,6 +143,8 @@ def menu_item_json(item: MenuItem, rating: tuple[float, int] | None = None) -> d
         "name": item.name,
         "price": item.price,
         "prep_minutes": item.prep_minutes,
+        "ingredients": item.ingredients or [],
+        "removable_ingredients": item.removable_ingredients or [],
         "available": item.available,
         "emoji": item.emoji,
         # صورة مرفوعة ← رابط نسبي يخدمه السيرفر؛ وإلا الرابط الخارجي إن وجد
@@ -173,6 +175,7 @@ def cafeteria_json(db: Session, cafe: Cafeteria) -> dict:
         "manual_status": cafe.manual_status,
         "active_orders": active_orders_count(db, cafe.id),
         "available_items": available or 0,
+        "server_time": now().isoformat(timespec="seconds"),
     }
 
 
@@ -180,10 +183,11 @@ def order_json(order: Order) -> dict:
     return {
         "id": order.id,
         "status": order.status,
+        "delivered_at": order.delivered_at.isoformat(timespec="seconds") if order.delivered_at else None,
         "cafeteria_id": order.cafeteria_id,
         "cafeteria_name": order.cafeteria.name,
         "student_name": order.student.name,
-        "student_university_id": order.student.university_id,
+        "student_university_id": order.student.public_university_id,
         "lines": [
             {
                 "menu_item_id": line.menu_item_id,

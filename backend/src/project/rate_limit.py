@@ -25,6 +25,9 @@ def check_login(db, identifier: str) -> None:
     limited = attempt.attempts >= MAX_ATTEMPTS
     if not limited:
         attempt.attempts += 1
+    # Sessions disable autoflush. Persist the renewed window before cleanup,
+    # otherwise an old row is deleted and its pending UPDATE fails at commit.
+    db.flush()
     db.execute(delete(LoginAttempt).where(LoginAttempt.window_start < now - timedelta(days=1)))
     db.commit()  # Failed authentication must also retain its attempt.
     if limited:

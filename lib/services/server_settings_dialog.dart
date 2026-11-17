@@ -1,4 +1,6 @@
+import '../localization/localized_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 
@@ -13,20 +15,25 @@ class ServerSettingsButton extends StatefulWidget {
 class _ServerSettingsButtonState extends State<ServerSettingsButton> {
   @override
   Widget build(BuildContext context) {
+    if (!kDebugMode) return const SizedBox.shrink();
     return TextButton.icon(
       onPressed: () async {
         await showServerSettings(context);
         if (mounted) setState(() {});
       },
       icon: const Icon(Icons.dns_outlined, size: 18),
-      label: Text('السيرفر: ${ApiClient.instance.baseUrl}', style: const TextStyle(fontSize: 12)),
+      label: LText(
+        'السيرفر: ${ApiClient.instance.baseUrl}',
+        style: const TextStyle(fontSize: 12),
+      ),
       style: TextButton.styleFrom(foregroundColor: Colors.grey.shade600),
     );
   }
 }
 
-/// تغيير عنوان السيرفر (مثلاً عند التشغيل على هاتف حقيقي: http://192.168.1.10:8000)
+/// تغيير عنوان السيرفر (مثلاً عند التشغيل على هاتف حقيقي: http://192.168.1.10:8001)
 Future<void> showServerSettings(BuildContext context) async {
+  if (!kDebugMode) return;
   final api = ApiClient.instance;
   final ctrl = TextEditingController(text: api.baseUrl);
   String? result;
@@ -36,33 +43,38 @@ Future<void> showServerSettings(BuildContext context) async {
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setD) => AlertDialog(
-        title: const Text('عنوان السيرفر'),
+        title: const LText('عنوان السيرفر'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
+            LTextField(
               controller: ctrl,
               textDirection: TextDirection.ltr,
               keyboardType: TextInputType.url,
               decoration: const InputDecoration(
-                hintText: 'http://192.168.1.10:8000',
+                hintText: 'http://192.168.1.10:8001',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '• على نفس الكمبيوتر: http://localhost:8000\n'
-              '• محاكي أندرويد: http://10.0.2.2:8000\n'
+            const LText(
+              '• على نفس الكمبيوتر: http://localhost:8001\n'
+              '• محاكي أندرويد: http://10.0.2.2:8001\n'
               '• هاتف حقيقي: عنوان IP للكمبيوتر على نفس شبكة الواي فاي',
               style: TextStyle(fontSize: 12),
             ),
             if (result != null) ...[
               const SizedBox(height: 8),
-              Text(result!,
-                  style: TextStyle(
-                      color: result!.startsWith('✅') ? Colors.green.shade700 : Colors.red.shade700,
-                      fontWeight: FontWeight.bold)),
+              LText(
+                result!,
+                style: TextStyle(
+                  color: result!.startsWith('✅')
+                      ? Colors.green.shade700
+                      : Colors.red.shade700,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ],
         ),
@@ -77,17 +89,19 @@ Future<void> showServerSettings(BuildContext context) async {
                     final ok = await api.ping(url);
                     setD(() {
                       testing = false;
-                      result = ok ? '✅ الاتصال ناجح' : '❌ تعذّر الوصول للسيرفر على هذا العنوان';
+                      result = ok
+                          ? '✅ الاتصال ناجح'
+                          : '❌ تعذّر الوصول للسيرفر على هذا العنوان';
                     });
                   },
-            child: Text(testing ? 'جارٍ الفحص...' : 'فحص الاتصال'),
+            child: LText(testing ? 'جارٍ الفحص...' : 'فحص الاتصال'),
           ),
           FilledButton(
             onPressed: () async {
               await api.setBaseUrl(ctrl.text);
               if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: const Text('حفظ'),
+            child: const LText('حفظ'),
           ),
         ],
       ),

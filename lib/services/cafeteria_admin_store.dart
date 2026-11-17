@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -21,6 +22,13 @@ class CafeteriaAdminStore extends ChangeNotifier {
   int weeklyRevenue = 0;
   int weeklyOrders = 0;
   Map<String, dynamic> dailySummary = {};
+  Map<String, dynamic> report = {};
+  String reportPeriod = 'week';
+  DateTime? reportStart;
+  DateTime? reportEnd;
+  bool reportLoading = false;
+  String? reportError;
+  int _reportRequest = 0;
   String? connectionError;
   bool loaded = false;
 
@@ -79,6 +87,13 @@ class CafeteriaAdminStore extends ChangeNotifier {
     orders = [];
     menu = [];
     loaded = false;
+    _reportRequest++;
+    report = {};
+    reportPeriod = 'week';
+    reportStart = null;
+    reportEnd = null;
+    reportLoading = false;
+    reportError = null;
     _seenOrderIds.clear();
     notifyListeners();
   }
@@ -115,6 +130,7 @@ class CafeteriaAdminStore extends ChangeNotifier {
       dailySummary = Map<String, dynamic>.from(
         await api.get('/admin/summary', auth: ApiRole.cafeteria) as Map,
       );
+      await loadReport();
       connectionError = null;
       loaded = true;
     } on ApiException catch (e) {
@@ -136,6 +152,50 @@ class CafeteriaAdminStore extends ChangeNotifier {
       return ActionResult.success(success);
     } on ApiException catch (e) {
       return ActionResult.failure(e.message);
+    }
+  }
+
+  Future<void> selectReport(
+    String period, {
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    reportPeriod = period;
+    reportStart = start;
+    reportEnd = end;
+    report = {};
+    await loadReport(showLoading: true);
+  }
+
+  Future<void> loadReport({bool showLoading = false}) async {
+    if (cafeteria == null) return;
+    final request = ++_reportRequest;
+    if (showLoading) {
+      reportLoading = true;
+      notifyListeners();
+    }
+    try {
+      String day(DateTime date) =>
+          '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      final result = await api.get(
+        '/admin/reports',
+        auth: ApiRole.cafeteria,
+        query: {
+          'period': reportPeriod,
+          if (reportStart != null) 'start_date': day(reportStart!),
+          if (reportEnd != null) 'end_date': day(reportEnd!),
+        },
+      );
+      if (request != _reportRequest) return;
+      report = Map<String, dynamic>.from(result as Map);
+      reportError = null;
+    } on ApiException catch (e) {
+      if (request == _reportRequest) reportError = e.message;
+    } finally {
+      if (request == _reportRequest) {
+        reportLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -189,19 +249,42 @@ class CafeteriaAdminStore extends ChangeNotifier {
         : 'تم تحديث حالة الكافيتريا للطلاب',
   );
 
-  Future<ActionResult> addMenuItem(String name, int price, int prepMinutes) =>
-      _run(
-        () => api.post(
-          '/admin/menu',
-          auth: ApiRole.cafeteria,
-          body: {
-            'name': name.trim(),
-            'price': price,
-            'prep_minutes': prepMinutes,
-          },
-        ),
-        'تمت إضافة الوجبة للمنيو',
-      );
+  Future<ActionResult> addMenuItem(
+    String name,
+    int price,
+    int prepMinutes, {
+    List<int>? imageBytes,
+    String? imageFilename,
+    List<String> ingredients = const [],
+    List<String> removableIngredients = const [],
+  }) => _run(
+    () => imageBytes != null
+        ? api.upload(
+            '/admin/menu/with-image',
+            imageBytes,
+            imageFilename ?? 'meal.jpg',
+            auth: ApiRole.cafeteria,
+            fields: {
+              'name': name.trim(),
+              'price': '$price',
+              'prep_minutes': '$prepMinutes',
+              'ingredients': jsonEncode(ingredients),
+              'removable_ingredients': jsonEncode(removableIngredients),
+            },
+          )
+        : api.post(
+            '/admin/menu',
+            auth: ApiRole.cafeteria,
+            body: {
+              'name': name.trim(),
+              'price': price,
+              'prep_minutes': prepMinutes,
+              'ingredients': ingredients,
+              'removable_ingredients': removableIngredients,
+            },
+          ),
+    'تمت إضافة الوجبة للمنيو',
+  );
 
   Future<ActionResult> setAvailable(MenuItemModel item, bool available) => _run(
     () => api.patch(
@@ -215,12 +298,20 @@ class CafeteriaAdminStore extends ChangeNotifier {
     MenuItemModel item,
     String name,
     int price,
-    int prepMinutes,
-  ) => _run(
+    int prepMinutes, {
+    List<String> ingredients = const [],
+    List<String> removableIngredients = const [],
+  }) => _run(
     () => api.patch(
       '/admin/menu/${item.id}',
       auth: ApiRole.cafeteria,
-      body: {'name': name.trim(), 'price': price, 'prep_minutes': prepMinutes},
+      body: {
+        'name': name.trim(),
+        'price': price,
+        'prep_minutes': prepMinutes,
+        'ingredients': ingredients,
+        'removable_ingredients': removableIngredients,
+      },
     ),
     'تم تعديل الوجبة',
   );

@@ -1,3 +1,4 @@
+import '../localization/localized_widgets.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
@@ -80,7 +81,7 @@ class _PasswordDialogState extends State<_PasswordDialog> {
   Widget build(BuildContext context) => PopScope(
     canPop: !busy,
     child: AlertDialog(
-      title: Text(
+      title: LText(
         widget.role == ApiRole.cafeteria
             ? 'تغيير رمز الكافيتريا'
             : 'تغيير كلمة المرور',
@@ -89,19 +90,19 @@ class _PasswordDialogState extends State<_PasswordDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
+            LTextField(
               controller: current,
               obscureText: true,
               enabled: !busy,
               decoration: const InputDecoration(labelText: 'القيمة الحالية'),
             ),
-            TextField(
+            LTextField(
               controller: next,
               obscureText: true,
               enabled: !busy,
               decoration: const InputDecoration(labelText: 'القيمة الجديدة'),
             ),
-            TextField(
+            LTextField(
               controller: confirmation,
               obscureText: true,
               enabled: !busy,
@@ -110,23 +111,23 @@ class _PasswordDialogState extends State<_PasswordDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
+            const LText(
               'سيتم إنهاء الجلسات القديمة بعد التغيير.',
               style: TextStyle(fontSize: 12),
             ),
             if (error != null)
-              Text(error!, style: const TextStyle(color: Colors.red)),
+              LText(error!, style: const TextStyle(color: Colors.red)),
           ],
         ),
       ),
       actions: [
         TextButton(
           onPressed: busy ? null : () => Navigator.pop(context),
-          child: const Text('إلغاء'),
+          child: const LText('إلغاء'),
         ),
         FilledButton(
           onPressed: busy ? null : save,
-          child: Text(busy ? 'جارٍ الحفظ...' : 'حفظ'),
+          child: LText(busy ? 'جارٍ الحفظ...' : 'حفظ'),
         ),
       ],
     ),

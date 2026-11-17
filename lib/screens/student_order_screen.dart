@@ -1,8 +1,11 @@
+import '../localization/localized_widgets.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import '../widgets/app_feedback.dart';
+import '../widgets/cart_dock.dart';
 import '../services/push_service.dart';
 import '../services/password_dialog.dart';
 import '../services/api_client.dart';
@@ -66,11 +69,11 @@ class _StudentOrderScreenState extends State<StudentOrderScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      LText(
                         n.title,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      Text(n.body, style: const TextStyle(fontSize: 12)),
+                      LText(n.body, style: const TextStyle(fontSize: 12)),
                     ],
                   ),
                 ),
@@ -141,20 +144,21 @@ class _StudentOrderScreenState extends State<StudentOrderScreen> {
           appBar: AppBar(
             backgroundColor: AppColors.darkGreen,
             foregroundColor: Colors.white,
-            title: Text(
+            title: LText(
               _tab == 0 ? 'وجباتي' : titles[_tab],
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             actions: [
+              const LanguageButton(),
               IconButton(
-                tooltip: 'السلة',
+                tooltip: ('السلة').tr(context),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const CartScreen()),
                 ),
                 icon: Badge(
                   isLabelVisible: store.cartCount > 0,
-                  label: Text('${store.cartCount}'),
+                  label: LText('${store.cartCount}'),
                   backgroundColor: AppColors.orange,
                   child: const Icon(Icons.shopping_bag_outlined),
                 ),
@@ -170,15 +174,15 @@ class _StudentOrderScreenState extends State<StudentOrderScreen> {
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     enabled: false,
-                    child: Text(
-                      '${store.currentStudent!.name}\n${store.currentStudent!.universityId}',
+                    child: LText(
+                      '${store.currentStudent!.name}\n${store.currentStudent!.phone}',
                       style: const TextStyle(color: Colors.black87),
                     ),
                   ),
                   const PopupMenuDivider(),
                   const PopupMenuItem(
                     value: 'password',
-                    child: Text('تغيير كلمة المرور'),
+                    child: LText('تغيير كلمة المرور'),
                   ),
                   const PopupMenuItem(
                     value: 'logout',
@@ -186,7 +190,7 @@ class _StudentOrderScreenState extends State<StudentOrderScreen> {
                       children: [
                         Icon(Icons.logout, color: Colors.red),
                         SizedBox(width: 8),
-                        Text('تسجيل الخروج'),
+                        LText('تسجيل الخروج'),
                       ],
                     ),
                   ),
@@ -201,14 +205,14 @@ class _StudentOrderScreenState extends State<StudentOrderScreen> {
                 MaterialBanner(
                   backgroundColor: Colors.red.shade50,
                   leading: Icon(Icons.wifi_off, color: Colors.red.shade700),
-                  content: Text(
+                  content: LText(
                     '${store.connectionError!}${store.lastUpdated == null ? '' : '\nآخر تحديث ناجح: ${store.lastUpdated!.hour.toString().padLeft(2, '0')}:${store.lastUpdated!.minute.toString().padLeft(2, '0')}'}',
                     style: const TextStyle(fontSize: 13),
                   ),
                   actions: [
                     TextButton(
                       onPressed: store.refresh,
-                      child: const Text('إعادة المحاولة'),
+                      child: const LText('إعادة المحاولة'),
                     ),
                   ],
                 ),
@@ -225,41 +229,60 @@ class _StudentOrderScreenState extends State<StudentOrderScreen> {
               ),
             ],
           ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _tab,
-            indicatorColor: AppColors.orange.withValues(alpha: 0.25),
-            onDestinationSelected: (i) {
-              setState(() => _tab = i);
-              if (i == 3) store.markAllRead();
-            },
-            destinations: [
-              const NavigationDestination(
-                icon: Icon(Icons.storefront_outlined),
-                selectedIcon: Icon(Icons.storefront),
-                label: 'الرئيسية',
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              QuietSize(
+                alignment: Alignment.bottomCenter,
+                child: store.cartCount > 0
+                    ? CartDock(
+                        total: store.cartTotal,
+                        count: store.cartCount,
+                        bottomInset: false,
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CartScreen()),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
-              NavigationDestination(
-                icon: Badge(
-                  isLabelVisible: store.activeOrders.isNotEmpty,
-                  label: Text('${store.activeOrders.length}'),
-                  child: const Icon(Icons.receipt_long_outlined),
-                ),
-                selectedIcon: const Icon(Icons.receipt_long),
-                label: 'طلباتي',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.favorite_border),
-                selectedIcon: Icon(Icons.favorite),
-                label: 'المفضلة',
-              ),
-              NavigationDestination(
-                icon: Badge(
-                  isLabelVisible: store.unreadCount > 0,
-                  label: Text('${store.unreadCount}'),
-                  child: const Icon(Icons.notifications_none),
-                ),
-                selectedIcon: const Icon(Icons.notifications),
-                label: 'الإشعارات',
+              NavigationBar(
+                selectedIndex: _tab,
+                indicatorColor: AppColors.softGreen,
+                onDestinationSelected: (i) {
+                  setState(() => _tab = i);
+                  if (i == 3) store.markAllRead();
+                },
+                destinations: [
+                  NavigationDestination(
+                    icon: const Icon(Icons.storefront_outlined),
+                    selectedIcon: const Icon(Icons.storefront),
+                    label: 'الرئيسية'.tr(context),
+                  ),
+                  NavigationDestination(
+                    icon: Badge(
+                      isLabelVisible: store.activeOrders.isNotEmpty,
+                      label: LText('${store.activeOrders.length}'),
+                      child: const Icon(Icons.receipt_long_outlined),
+                    ),
+                    selectedIcon: const Icon(Icons.receipt_long),
+                    label: 'طلباتي'.tr(context),
+                  ),
+                  NavigationDestination(
+                    icon: const Icon(Icons.favorite_border),
+                    selectedIcon: const Icon(Icons.favorite),
+                    label: 'المفضلة'.tr(context),
+                  ),
+                  NavigationDestination(
+                    icon: Badge(
+                      isLabelVisible: store.unreadCount > 0,
+                      label: LText('${store.unreadCount}'),
+                      child: const Icon(Icons.notifications_none),
+                    ),
+                    selectedIcon: const Icon(Icons.notifications),
+                    label: 'الإشعارات'.tr(context),
+                  ),
+                ],
               ),
             ],
           ),

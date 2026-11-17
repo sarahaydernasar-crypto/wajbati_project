@@ -19,6 +19,7 @@ class OrderItem {
   int? rating; // تقييم الطالب للطلب (1-5)
   String? ratingComment;
   final String? closureReason;
+  final DateTime? deliveredAt;
 
   OrderItem({
     required this.id,
@@ -39,6 +40,7 @@ class OrderItem {
     this.rating,
     this.ratingComment,
     this.closureReason,
+    this.deliveredAt,
   });
 
   /// من استجابة السيرفر
@@ -74,6 +76,9 @@ class OrderItem {
       rating: j['rating'] as int?,
       ratingComment: j['rating_comment'] as String?,
       closureReason: j['closure_reason'] as String?,
+      deliveredAt: j['delivered_at'] == null
+          ? null
+          : DateTime.tryParse(j['delivered_at'] as String),
     );
   }
 }
@@ -106,6 +111,8 @@ class OrderLine {
 }
 
 class MenuItemModel {
+  final List<String> ingredients;
+  final List<String> removableIngredients;
   int? id;
   int? cafeteriaId;
   String? cafeteriaName;
@@ -130,6 +137,8 @@ class MenuItemModel {
     this.emoji = '🍽️',
     this.ratingAvg,
     this.ratingCount = 0,
+    this.ingredients = const [],
+    this.removableIngredients = const [],
   });
 
   factory MenuItemModel.fromApi(Map<String, dynamic> j) => MenuItemModel(
@@ -144,6 +153,10 @@ class MenuItemModel {
     emoji: (j['emoji'] as String?) ?? '🍽️',
     ratingAvg: (j['rating_avg'] as num?)?.toDouble(),
     ratingCount: (j['rating_count'] as int?) ?? 0,
+    ingredients: List<String>.from(j['ingredients'] as List? ?? const []),
+    removableIngredients: List<String>.from(
+      j['removable_ingredients'] as List? ?? const [],
+    ),
   );
 
   double get priceValue => double.tryParse(price.trim()) ?? 0;

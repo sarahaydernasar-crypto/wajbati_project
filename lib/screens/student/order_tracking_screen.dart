@@ -1,3 +1,4 @@
+import '../../localization/localized_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -44,18 +45,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('إلغاء الطلب؟'),
-        content: const Text(
+        title: const LText('إلغاء الطلب؟'),
+        content: const LText(
           'يمكن إلغاء الطلب ما دامت الكافيتريا لم تبدأ تحضيره.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('رجوع'),
+            child: const LText('رجوع'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('إلغاء الطلب'),
+            child: const LText('إلغاء الطلب'),
           ),
         ],
       ),
@@ -76,7 +77,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           appBar: AppBar(
             backgroundColor: AppColors.darkGreen,
             foregroundColor: Colors.white,
-            title: Text(
+            title: LText(
               'طلب #$orderId',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
@@ -93,7 +94,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                         action: FilledButton.icon(
                           onPressed: _fetch,
                           icon: const Icon(Icons.refresh),
-                          label: const Text('إعادة المحاولة'),
+                          label: const LText('إعادة المحاولة'),
                         ),
                       ))
               : RefreshIndicator(
@@ -114,7 +115,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                         TextButton.icon(
                           onPressed: () => _cancel(order),
                           icon: const Icon(Icons.cancel_outlined),
-                          label: const Text('إلغاء الطلب'),
+                          label: const LText('إلغاء الطلب'),
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.red,
                           ),
@@ -150,13 +151,13 @@ class _StatusHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 40)),
+          LText(emoji, style: const TextStyle(fontSize: 40)),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                LText(
                   text,
                   style: const TextStyle(
                     color: Colors.white,
@@ -165,7 +166,7 @@ class _StatusHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                LText(
                   'الاستلام ${order.pickupTime == null ? '-' : formatTime(order.pickupTime!)} • ${order.cafeteriaName}',
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
@@ -223,7 +224,7 @@ class _StatusTimeline extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
+                    LText(
                       OrderStatus.studentLabels[OrderStatus.steps[i]]!,
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -270,7 +271,7 @@ class _PickupSection extends StatelessWidget {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(
+          child: LText(
             order.closureReason ?? OrderStatus.studentLabels[order.status]!,
           ),
         ),
@@ -285,7 +286,7 @@ class _PickupSection extends StatelessWidget {
           child: Column(
             children: [
               if (order.rating == null) ...[
-                const Text(
+                const LText(
                   'كيف كانت وجبتك؟',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
@@ -296,10 +297,10 @@ class _PickupSection extends StatelessWidget {
                   ),
                   onPressed: () => showRateOrderDialog(context, order),
                   icon: const Icon(Icons.star),
-                  label: const Text('قيّم الوجبة'),
+                  label: const LText('قيّم الوجبة'),
                 ),
               ] else ...[
-                const Text(
+                const LText(
                   'تقييمك',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
@@ -307,7 +308,7 @@ class _PickupSection extends StatelessWidget {
                 StarRating(value: order.rating!.toDouble(), size: 28),
                 if (order.ratingComment != null) ...[
                   const SizedBox(height: 6),
-                  Text(
+                  LText(
                     '"${order.ratingComment}"',
                     style: TextStyle(color: Colors.grey.shade700),
                   ),
@@ -320,7 +321,7 @@ class _PickupSection extends StatelessWidget {
                   if (context.mounted) showResult(context, r);
                 },
                 icon: const Icon(Icons.replay),
-                label: const Text('أعد الطلب'),
+                label: const LText('أعد الطلب'),
               ),
             ],
           ),
@@ -336,7 +337,7 @@ class _PickupSection extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Text(
+              LText(
                 ready
                     ? 'طلبك جاهز. عند وصولك للكافيتريا اضغط "وصلت" لعرض رمز الاستلام.'
                     : 'عند وصولك للكافيتريا اضغط "وصلت" لعرض رمز QR للاستلام.',
@@ -361,7 +362,7 @@ class _PickupSection extends StatelessWidget {
                     if (!r.ok && context.mounted) showResult(context, r);
                   },
                   icon: const Icon(Icons.where_to_vote),
-                  label: const Text(
+                  label: const LText(
                     'وصلت',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
@@ -379,7 +380,7 @@ class _PickupSection extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Text(
+            const LText(
               'أظهر هذا الرمز لموظف الكافيتريا',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -411,7 +412,7 @@ class _PickupSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            Text(
+            LText(
               'رقم الطلب: ${order.id}',
               style: const TextStyle(
                 fontSize: 18,
@@ -420,7 +421,7 @@ class _PickupSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
+            LText(
               order.status == OrderStatus.ready
                   ? 'طلبك جاهز ✅'
                   : 'طلبك لم يجهز بعد، سيتم تنبيهك فور جاهزيته',
@@ -450,19 +451,19 @@ class _OrderDetails extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            const LText(
               'تفاصيل الطلب',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 8),
-            if (order.lines.isEmpty) Text(order.details),
+            if (order.lines.isEmpty) LText(order.details),
             for (final l in order.lines)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    LText(
                       '${l.quantity}× ',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
@@ -470,9 +471,9 @@ class _OrderDetails extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(l.itemName),
+                          LText(l.itemName),
                           if (l.note.isNotEmpty)
-                            Text(
+                            LText(
                               l.note,
                               style: const TextStyle(
                                 fontSize: 12,
@@ -482,7 +483,7 @@ class _OrderDetails extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Text(formatPrice(l.total)),
+                    LText(formatPrice(l.total)),
                   ],
                 ),
               ),
@@ -500,9 +501,9 @@ class _OrderDetails extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 2),
     child: Row(
       children: [
-        Text(a, style: TextStyle(color: Colors.grey.shade700)),
+        LText(a, style: TextStyle(color: Colors.grey.shade700)),
         const Spacer(),
-        Text(
+        LText(
           b,
           style: TextStyle(
             fontWeight: bold ? FontWeight.bold : FontWeight.w500,
